@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Procurify SaaS - Advanced Procurement</title>
+    <title>Procurify OS - Enterprise Procurement & Vendor Management</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,8 +12,9 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: '#4f46e5', // Indigo 600
-                        secondary: '#1e293b', // Slate 800
+                        primary: '#6366f1', // Indigo 500
+                        secondary: '#0f172a', // Slate 900
+                        surface: '#1e293b',
                         success: '#10b981',
                         warning: '#f59e0b',
                         danger: '#ef4444'
@@ -23,7 +24,7 @@
         }
     </script>
 
-    <!-- FontAwesome -->
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- React 18 & ReactDOM -->
@@ -38,13 +39,13 @@
     <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
 
     <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: #f8fafc; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: #f1f5f9; color: #334155; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.25s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -56,9 +57,9 @@
 
         // --- SEED DATA ---
         const seedVendors = [
-            { id: 'v1', name: 'Acme Corp', category: 'Hardware', contact: 'john@acme.com', terms: 'Net 30', score: 92 },
-            { id: 'v2', name: 'Global Tech', category: 'Software', contact: 'sarah@global.com', terms: 'Net 60', score: 85 },
-            { id: 'v3', name: 'FastLogistics', category: 'Shipping', contact: 'mike@fast.com', terms: 'Net 15', score: 98 }
+            { id: 'v1', name: 'Acme Corp', category: 'Hardware', contact: 'john@acme.com', terms: 'Net 30', score: 94 },
+            { id: 'v2', name: 'Global Tech', category: 'Software', contact: 'sarah@global.com', terms: 'Net 60', score: 88 },
+            { id: 'v3', name: 'FastLogistics', category: 'Shipping', contact: 'mike@fast.com', terms: 'Net 15', score: 96 }
         ];
 
         const seedCatalog = [
@@ -68,10 +69,17 @@
             { id: 'c4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', category: 'IT Equip', stdPrice: 950 }
         ];
 
+        const seedInventory = [
+            { id: 'i1', sku: 'HW-SRV-01', name: 'Server Racks', stock: 3, minStock: 5, warehouse: 'WH-East' },
+            { id: 'i2', sku: 'SW-CLD-99', name: 'Cloud Subscriptions', stock: 50, minStock: 10, warehouse: 'Cloud' },
+            { id: 'i3', sku: 'OF-CHR-12', name: 'Office Chairs', stock: 8, minStock: 12, warehouse: 'WH-West' },
+            { id: 'i4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', stock: 2, minStock: 10, warehouse: 'WH-Central' }
+        ];
+
         const seedPOs = [
-            { id: 'PO-1001', vendorId: 'v1', vendorName: 'Acme Corp', itemName: 'Server Racks', qty: 5, receivedQty: 0, price: 1200, total: 6000, status: 'ISSUED', paymentStatus: 'UNPAID', date: '2023-10-01' },
-            { id: 'PO-1002', vendorId: 'v2', vendorName: 'Global Tech', itemName: 'Cloud Subscriptions', qty: 1, receivedQty: 1, price: 5000, total: 5000, status: 'FULFILLED', paymentStatus: 'PAID', date: '2023-10-15' },
-            { id: 'PO-1003', vendorId: 'v3', vendorName: 'FastLogistics', itemName: 'Freight Q3', qty: 10, receivedQty: 4, price: 150, total: 1500, status: 'PARTIAL RECEIPT', paymentStatus: 'UNPAID', date: '2023-09-20' }
+            { id: 'PO-1001', vendorId: 'v1', vendorName: 'Acme Corp', itemName: 'Server Racks', qty: 5, receivedQty: 0, price: 1200, total: 6000, status: 'PENDING APPROVAL', paymentStatus: 'UNPAID', date: '2026-06-01' },
+            { id: 'PO-1002', vendorId: 'v2', vendorName: 'Global Tech', itemName: 'Cloud Subscriptions', qty: 1, receivedQty: 1, price: 5000, total: 5000, status: 'FULFILLED', paymentStatus: 'PAID', date: '2026-06-10', rated: true },
+            { id: 'PO-1003', vendorId: 'v3', vendorName: 'FastLogistics', itemName: 'Freight Q3', qty: 10, receivedQty: 4, price: 150, total: 1500, status: 'PARTIAL RECEIPT', paymentStatus: 'UNPAID', date: '2026-06-12' }
         ];
 
         const seedBids = [
@@ -118,15 +126,15 @@
             const addToast = (message, type = 'success') => {
                 const id = Date.now();
                 setToasts(prev => [...prev, { id, message, type }]);
-                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
             };
             return (
                 <ToastContext.Provider value={{ addToast }}>
                     {children}
-                    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+                    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2">
                         {toasts.map(t => (
-                            <div key={t.id} className={`fade-in px-4 py-3 rounded-lg shadow-lg text-white flex items-center gap-3 ${t.type === 'success' ? 'bg-green-600' : 'bg-blue-600'}`}>
-                                <i className={`fa-solid ${t.type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}`}></i>
+                            <div key={t.id} className={`fade-in px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium flex items-center gap-3 ${t.type === 'success' ? 'bg-emerald-600' : t.type === 'warning' ? 'bg-amber-600' : 'bg-indigo-600'}`}>
+                                <i className={`fa-solid ${t.type === 'success' ? 'fa-circle-check text-emerald-200' : t.type === 'warning' ? 'fa-triangle-exclamation text-amber-200' : 'fa-circle-info text-indigo-200'}`}></i>
                                 <span>{t.message}</span>
                             </div>
                         ))}
@@ -140,11 +148,11 @@
         const Modal = ({ isOpen, onClose, title, children }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                            <h3 className="font-semibold text-lg text-gray-800">{title}</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><i className="fa-solid fa-times"></i></button>
+                <div className="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-xs z-50 flex justify-center items-center fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-800 text-base">{title}</h3>
+                            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"><i className="fa-solid fa-xmark"></i></button>
                         </div>
                         <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
                     </div>
@@ -154,16 +162,18 @@
 
         const StatusBadge = ({ status }) => {
             const styles = {
-                'ISSUED': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                'PARTIAL RECEIPT': 'bg-blue-100 text-blue-800 border-blue-200',
-                'FULFILLED': 'bg-green-100 text-green-800 border-green-200',
-                'PENDING': 'bg-gray-100 text-gray-800 border-gray-200',
-                'AWARDED': 'bg-primary bg-opacity-10 text-primary border-primary border-opacity-20',
-                'PAID': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                'UNPAID': 'bg-rose-100 text-rose-800 border-rose-200'
+                'PENDING APPROVAL': 'bg-amber-50 text-amber-700 border-amber-200',
+                'ISSUED': 'bg-blue-50 text-blue-700 border-blue-200',
+                'PARTIAL RECEIPT': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                'FULFILLED': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'PENDING': 'bg-slate-100 text-slate-700 border-slate-200',
+                'AWARDED': 'bg-violet-50 text-violet-700 border-violet-200',
+                'PAID': 'bg-teal-50 text-teal-700 border-teal-200',
+                'UNPAID': 'bg-rose-50 text-rose-700 border-rose-200'
             };
             return (
-                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${styles[status] || 'bg-gray-100'}`}>
+                <span className={`px-3 py-1 text-xs font-semibold rounded-full border inline-flex items-center gap-1.5 ${styles[status] || 'bg-slate-100 text-slate-700'}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     {status}
                 </span>
             );
@@ -171,10 +181,11 @@
 
         // --- VIEWS ---
 
-        const DashboardView = ({ pos, vendors }) => {
+        const DashboardView = ({ pos, vendors, inventory }) => {
             const totalSpend = pos.reduce((sum, po) => sum + po.total, 0);
-            const activePOs = pos.filter(p => p.status !== 'FULFILLED').length;
-            const BUDGET_QUARTER = 150000;
+            const pendingApprovalsCount = pos.filter(p => p.status === 'PENDING APPROVAL').length;
+            const lowStockCount = inventory.filter(i => i.stock <= i.minStock).length;
+            const BUDGET_QUARTER = 200000;
             const budgetUsedPerc = Math.min((totalSpend / BUDGET_QUARTER) * 100, 100).toFixed(1);
             
             const spendByVendorMap = pos.reduce((acc, po) => {
@@ -183,7 +194,6 @@
             }, {});
             const barData = Object.keys(spendByVendorMap).map(k => ({ name: k, Spend: spendByVendorMap[k] }));
 
-            // Mock timeline data based on PO dates
             const timelineData = [...pos].sort((a,b) => new Date(a.date) - new Date(b.date)).reduce((acc, po) => {
                 const existing = acc.find(x => x.date === po.date);
                 if(existing) existing.amount += po.total;
@@ -193,55 +203,86 @@
 
             return (
                 <div className="fade-in space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Procurement Intelligence</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                            <p className="text-sm text-gray-500 font-medium mb-1">Total PO Spend</p>
-                            <p className="text-2xl font-bold text-gray-900">${totalSpend.toLocaleString()}</p>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Executive Procurement Dashboard</h2>
+                            <p className="text-sm text-slate-500 mt-0.5">Real-time spend intelligence, stock thresholds, and manager workflows.</p>
                         </div>
-                        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                            <p className="text-sm text-gray-500 font-medium mb-1">Budget Utilization (Q3)</p>
-                            <p className="text-2xl font-bold text-gray-900">{budgetUsedPerc}%</p>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                                <div className={`h-1.5 rounded-full ${budgetUsedPerc > 90 ? 'bg-red-500' : 'bg-green-500'}`} style={{width: `${budgetUsedPerc}%`}}></div>
+                        {(pendingApprovalsCount > 0 || lowStockCount > 0) && (
+                            <div className="flex gap-2">
+                                {pendingApprovalsCount > 0 && (
+                                    <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-2">
+                                        <i className="fa-solid fa-triangle-exclamation"></i> {pendingApprovalsCount} POs Pending Approval
+                                    </span>
+                                )}
+                                {lowStockCount > 0 && (
+                                    <span className="bg-rose-100 text-rose-800 text-xs font-semibold px-3 py-1.5 rounded-xl border border-rose-200 flex items-center gap-2">
+                                        <i className="fa-solid fa-box-archive"></i> {lowStockCount} Low Stock Alerts
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total PO Spend</span>
+                                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i className="fa-solid fa-dollar-sign"></i></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">${totalSpend.toLocaleString()}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Budget Utilization</span>
+                                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-chart-pie"></i></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{budgetUsedPerc}%</p>
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                                <div className={`h-1.5 rounded-full ${budgetUsedPerc > 90 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{width: `${budgetUsedPerc}%`}}></div>
                             </div>
                         </div>
-                        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                            <p className="text-sm text-gray-500 font-medium mb-1">Active POs</p>
-                            <p className="text-2xl font-bold text-gray-900">{activePOs}</p>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Vendors</span>
+                                <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center"><i className="fa-solid fa-users"></i></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{vendors.length}</p>
                         </div>
-                        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                            <p className="text-sm text-gray-500 font-medium mb-1">Active Vendors</p>
-                            <p className="text-2xl font-bold text-gray-900">{vendors.length}</p>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventory SKUs</span>
+                                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i className="fa-solid fa-boxes-stacked"></i></div>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900">{inventory.length}</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                            <h3 className="text-sm font-semibold text-gray-800 mb-4">Spend Timeline</h3>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-arrow-trend-up text-indigo-500"></i> Spend Timeline</h3>
                             <div className="h-64">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={timelineData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{fontSize: 12}} />
-                                        <Tooltip formatter={(v) => `$${v.toLocaleString()}`} />
-                                        <Line type="monotone" dataKey="amount" stroke="#4f46e5" strokeWidth={3} dot={{r: 4}} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+                                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{fontSize: 12, fill: '#64748b'}} />
+                                        <Tooltip formatter={(v) => [`$${v.toLocaleString()}`, 'Spend']} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                                        <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={3} dot={{r: 4, fill: '#6366f1'}} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                            <h3 className="text-sm font-semibold text-gray-800 mb-4">Spend by Vendor</h3>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-chart-column text-emerald-500"></i> Spend by Vendor</h3>
                             <div className="h-64">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={barData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{fontSize: 12}} />
-                                        <Tooltip cursor={{fill: '#f8fafc'}} formatter={(v) => `$${v.toLocaleString()}`} />
-                                        <Bar dataKey="Spend" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+                                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{fontSize: 12, fill: '#64748b'}} />
+                                        <Tooltip cursor={{fill: '#f8fafc'}} formatter={(v) => [`$${v.toLocaleString()}`, 'Spend']} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                                        <Bar dataKey="Spend" fill="#10b981" radius={[6, 6, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -251,103 +292,116 @@
             );
         };
 
-        const CatalogView = ({ catalog, setCatalog }) => {
+        const InventoryView = ({ inventory, setInventory, setPOs, pos, vendors }) => {
             const { addToast } = useToast();
             const [searchTerm, setSearchTerm] = useState("");
-            const [isModalOpen, setIsModalOpen] = useState(false);
 
-            const filtered = catalog.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.sku.toLowerCase().includes(searchTerm.toLowerCase()));
-
-            const handleAdd = (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                setCatalog([...catalog, { id: generateId('c'), sku: fd.get('sku'), name: fd.get('name'), category: fd.get('category'), stdPrice: parseFloat(fd.get('stdPrice')) }]);
-                setIsModalOpen(false);
-                addToast('Item added to catalog!');
+            const handleReorder = (item) => {
+                const deficit = (item.minStock * 2) - item.stock;
+                const defaultVendor = vendors[0];
+                const newPO = {
+                    id: generateId('PO'),
+                    vendorId: defaultVendor.id,
+                    vendorName: defaultVendor.name,
+                    itemName: item.name,
+                    qty: deficit > 0 ? deficit : 10,
+                    receivedQty: 0,
+                    price: 150,
+                    total: (deficit > 0 ? deficit : 10) * 150,
+                    status: 'PENDING APPROVAL',
+                    paymentStatus: 'UNPAID',
+                    date: new Date().toISOString().split('T')[0]
+                };
+                setPOs([newPO, ...pos]);
+                addToast(`Auto-generated reorder PO for ${item.name}!`, 'success');
             };
+
+            const filtered = inventory.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()) || i.sku.toLowerCase().includes(searchTerm.toLowerCase()));
 
             return (
                 <div className="fade-in space-y-6">
                     <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-bold text-gray-800">Item Catalog</h2>
-                        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary rounded-lg text-sm font-medium text-white hover:bg-indigo-700 shadow-sm transition">
-                            <i className="fa-solid fa-plus mr-2"></i> Add Item
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Inventory Stock Levels & Reorders</h2>
+                            <p className="text-sm text-slate-500 mt-0.5">Track warehouse stock thresholds and trigger automated replenishment orders.</p>
+                        </div>
+                        <button onClick={() => exportCSV(inventory, 'inventory_stock.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
+                            <i className="fa-solid fa-download text-slate-400"></i> Export CSV
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 border-b border-gray-100 bg-gray-50">
-                            <input type="text" placeholder="Search SKU or Name..." className="pl-4 pr-4 py-2 w-72 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                            <div className="relative w-80">
+                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                                <input type="text" placeholder="Search SKU or item..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium">Showing {filtered.length} items</span>
                         </div>
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-gray-700 border-b">
-                                <tr>
-                                    <th className="p-4">SKU</th>
-                                    <th className="p-4">Item Name</th>
-                                    <th className="p-4">Category</th>
-                                    <th className="p-4">Standard Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map(c => (
-                                    <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
-                                        <td className="p-4 font-mono text-xs text-gray-500">{c.sku}</td>
-                                        <td className="p-4 font-medium">{c.name}</td>
-                                        <td className="p-4">{c.category}</td>
-                                        <td className="p-4">${c.stdPrice.toLocaleString()}</td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-600">
+                                <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
+                                    <tr>
+                                        <th className="p-4">SKU</th>
+                                        <th className="p-4">Item Name</th>
+                                        <th className="p-4">Warehouse</th>
+                                        <th className="p-4">Current Stock</th>
+                                        <th className="p-4">Min Threshold</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4 text-right">Action</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Catalog Item">
-                        <form onSubmit={handleAdd} className="space-y-4">
-                            <div><label className="block text-sm mb-1">SKU</label><input required name="sku" className="w-full border rounded-lg p-2" /></div>
-                            <div><label className="block text-sm mb-1">Item Name</label><input required name="name" className="w-full border rounded-lg p-2" /></div>
-                            <div><label className="block text-sm mb-1">Category</label><input required name="category" className="w-full border rounded-lg p-2" /></div>
-                            <div><label className="block text-sm mb-1">Standard Price ($)</label><input required type="number" step="0.01" name="stdPrice" className="w-full border rounded-lg p-2" /></div>
-                            <button type="submit" className="w-full bg-primary text-white py-2 rounded-lg font-medium">Save Item</button>
-                        </form>
-                    </Modal>
-                </div>
-            );
-        };
-
-        const VendorsView = ({ vendors, setVendors }) => {
-            const [searchTerm, setSearchTerm] = useState("");
-            return (
-                <div className="fade-in space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Vendor Directory</h2>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 border-b bg-gray-50"><input type="text" placeholder="Search vendors..." className="px-4 py-2 w-72 border rounded-lg text-sm" onChange={(e) => setSearchTerm(e.target.value)} /></div>
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-gray-700 border-b">
-                                <tr><th className="p-4">Vendor</th><th className="p-4">Category</th><th className="p-4">Contact</th><th className="p-4">Score</th></tr>
-                            </thead>
-                            <tbody>
-                                {vendors.filter(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())).map(v => (
-                                    <tr key={v.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-4 font-medium">{v.name}</td>
-                                        <td className="p-4">{v.category}</td>
-                                        <td className="p-4">{v.contact}</td>
-                                        <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${v.score >= 90 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{v.score}/100</span></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {filtered.map(i => {
+                                        const isLow = i.stock <= i.minStock;
+                                        return (
+                                            <tr key={i.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                                <td className="p-4 font-mono text-xs text-slate-500">{i.sku}</td>
+                                                <td className="p-4 font-bold text-slate-900">{i.name}</td>
+                                                <td className="p-4 text-slate-600">{i.warehouse}</td>
+                                                <td className="p-4 font-semibold text-slate-800">{i.stock} units</td>
+                                                <td className="p-4 text-slate-500">{i.minStock} units</td>
+                                                <td className="p-4">
+                                                    {isLow ? (
+                                                        <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1.5">
+                                                            <i className="fa-solid fa-triangle-exclamation"></i> Low Stock
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5">
+                                                            <i className="fa-solid fa-check"></i> Healthy
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <button onClick={() => handleReorder(i)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition shadow-xs">
+                                                        <i className="fa-solid fa-cart-plus mr-1"></i> Quick Reorder
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             );
         };
 
-        const POsView = ({ pos, setPOs, vendors, catalog }) => {
+        const POsView = ({ pos, setPOs, vendors, catalog, setVendors, inventory, setInventory }) => {
             const { addToast } = useToast();
             const [searchTerm, setSearchTerm] = useState("");
+            const [statusFilter, setStatusFilter] = useState("ALL");
             const [createModal, setCreateModal] = useState(false);
-            const [receivePO, setReceivePO] = useState(null); // Holds PO object being received
-            
-            const filteredPOs = pos.filter(p => p.id.toLowerCase().includes(searchTerm.toLowerCase()) || p.vendorName.toLowerCase().includes(searchTerm.toLowerCase()));
+            const [receivePO, setReceivePO] = useState(null); 
+            const [ratePO, setRatePO] = useState(null); // Vendor rating modal state
+            const [ratingData, setRatingData] = useState({ quality: 5, delivery: 5, cost: 5 });
+
+            const filteredPOs = pos.filter(p => {
+                const matchesSearch = p.id.toLowerCase().includes(searchTerm.toLowerCase()) || p.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) || p.itemName.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
 
             const handleCreatePO = (e) => {
                 e.preventDefault();
@@ -357,17 +411,32 @@
                 const itemName = fd.get('itemName');
                 const qty = parseInt(fd.get('qty'));
                 const price = parseFloat(fd.get('price'));
+                const total = qty * price;
                 
+                // If total > 5000, requires approval manager sign-off
+                const initialStatus = total > 5000 ? 'PENDING APPROVAL' : 'ISSUED';
+
                 const newPO = {
                     id: generateId('PO'),
-                    vendorId: vendor.id, vendorName: vendor.name,
-                    itemName, qty, receivedQty: 0, price, total: qty * price,
-                    status: 'ISSUED', paymentStatus: 'UNPAID',
+                    vendorId: vendor.id, 
+                    vendorName: vendor.name,
+                    itemName, 
+                    qty, 
+                    receivedQty: 0, 
+                    price, 
+                    total,
+                    status: initialStatus, 
+                    paymentStatus: 'UNPAID',
                     date: new Date().toISOString().split('T')[0]
                 };
                 setPOs([newPO, ...pos]);
                 setCreateModal(false);
-                addToast(`PO ${newPO.id} successfully created!`);
+                addToast(`PO ${newPO.id} successfully created! ${initialStatus === 'PENDING APPROVAL' ? '(Requires Approval)' : ''}`, 'success');
+            };
+
+            const handleApprovePO = (poId) => {
+                setPOs(pos.map(p => p.id === poId ? { ...p, status: 'ISSUED' } : p));
+                addToast(`PO ${poId} approved and issued to vendor!`, 'success');
             };
 
             const handleReceive = (e) => {
@@ -380,69 +449,140 @@
                     const newStatus = newReceived >= p.qty ? 'FULFILLED' : 'PARTIAL RECEIPT';
                     return { ...p, receivedQty: newReceived, status: newStatus };
                 }));
+
+                // Update inventory stock levels
+                setInventory(inventory.map(inv => {
+                    if(inv.name.toLowerCase() === receivePO.itemName.toLowerCase()) {
+                        return { ...inv, stock: inv.stock + amount };
+                    }
+                    return inv;
+                }));
                 
                 setReceivePO(null);
-                addToast(`Successfully received ${amount} units for ${receivePO.id}`);
+                addToast(`Received ${amount} units for ${receivePO.id}. Inventory updated.`, 'success');
             };
 
             const handlePay = (poId) => {
                 setPOs(pos.map(p => p.id === poId ? { ...p, paymentStatus: 'PAID' } : p));
-                addToast(`PO ${poId} marked as PAID.`);
+                addToast(`PO ${poId} marked as PAID.`, 'success');
+            };
+
+            const submitVendorRating = (e) => {
+                e.preventDefault();
+                const avgScore = Math.round((parseInt(ratingData.quality) + parseInt(ratingData.delivery) + parseInt(ratingData.cost)) / 3 * 20); // 1-5 scale mapped to ~100
+                
+                // Update vendor score (weighted average or simple update)
+                setVendors(vendors.map(v => {
+                    if(v.id === ratePO.vendorId) {
+                        const newScore = Math.round((v.score + avgScore) / 2);
+                        return { ...v, score: newScore };
+                    }
+                    return v;
+                }));
+
+                // Mark PO as rated
+                setPOs(pos.map(p => p.id === ratePO.id ? { ...p, rated: true } : p));
+                setRatePO(null);
+                addToast(`Vendor performance score updated successfully!`, 'success');
             };
 
             return (
                 <div className="fade-in space-y-6">
                     <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-bold text-gray-800">Purchase Orders & Receiving</h2>
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Purchase Orders & Receiving</h2>
+                            <p className="text-sm text-slate-500 mt-0.5">Manage approval workflows, track goods receiving, and accounts payable.</p>
+                        </div>
                         <div className="flex gap-3">
-                            <button onClick={() => exportCSV(pos, 'pos.csv')} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 shadow-sm"><i className="fa-solid fa-download mr-2"></i> Export</button>
-                            <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-primary rounded-lg text-sm font-medium text-white hover:bg-indigo-700 shadow-sm"><i className="fa-solid fa-file-invoice mr-2"></i> Create PO</button>
+                            <button onClick={() => exportCSV(pos, 'purchase_orders.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
+                                <i className="fa-solid fa-download text-slate-400"></i> Export
+                            </button>
+                            <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
+                                <i className="fa-solid fa-plus"></i> Create PO
+                            </button>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 border-b bg-gray-50">
-                            <input type="text" placeholder="Search POs..." className="px-4 py-2 w-72 border rounded-lg text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                        {/* Filter and Search Bar */}
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+                            <div className="relative w-80">
+                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                                <input type="text" placeholder="Search PO ID, vendor, item..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status Filter:</span>
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 bg-white rounded-xl text-xs font-semibold p-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="PENDING APPROVAL">Pending Approval</option>
+                                    <option value="ISSUED">Issued</option>
+                                    <option value="PARTIAL RECEIPT">Partial Receipt</option>
+                                    <option value="FULFILLED">Fulfilled</option>
+                                </select>
+                            </div>
                         </div>
+
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-gray-50 text-gray-700 border-b">
+                            <table className="w-full text-left text-sm text-slate-600 whitespace-nowrap">
+                                <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
                                     <tr>
-                                        <th className="p-4">PO #</th>
+                                        <th className="p-4">PO # & Date</th>
                                         <th className="p-4">Vendor</th>
                                         <th className="p-4">Item</th>
-                                        <th className="p-4">Qty (Recv / Ord)</th>
-                                        <th className="p-4">Total</th>
+                                        <th className="p-4">Qty Progress</th>
+                                        <th className="p-4">Total Amount</th>
                                         <th className="p-4">Status</th>
                                         <th className="p-4">Payment</th>
                                         <th className="p-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredPOs.map((p) => (
-                                        <tr key={p.id} className="border-b hover:bg-gray-50">
-                                            <td className="p-4 font-bold text-gray-900">{p.id}</td>
-                                            <td className="p-4 font-medium">{p.vendorName}</td>
-                                            <td className="p-4">{p.itemName}</td>
+                                    {filteredPOs.length > 0 ? filteredPOs.map((p) => (
+                                        <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
                                             <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-16 bg-gray-200 rounded-full h-1.5"><div className="bg-blue-500 h-1.5 rounded-full" style={{width: `${(p.receivedQty/p.qty)*100}%`}}></div></div>
-                                                    <span className="text-xs text-gray-500">{p.receivedQty} / {p.qty}</span>
+                                                <p className="font-bold text-slate-900">{p.id}</p>
+                                                <p className="text-xs text-slate-400">{p.date}</p>
+                                            </td>
+                                            <td className="p-4 font-semibold text-slate-800">{p.vendorName}</td>
+                                            <td className="p-4 text-slate-700">{p.itemName}</td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-indigo-500 h-2 rounded-full" style={{width: `${(p.receivedQty/p.qty)*100}%`}}></div></div>
+                                                    <span className="text-xs font-medium text-slate-500">{p.receivedQty}/{p.qty}</span>
                                                 </div>
                                             </td>
-                                            <td className="p-4">${p.total.toLocaleString()}</td>
+                                            <td className="p-4 font-bold text-slate-900">${p.total.toLocaleString()}</td>
                                             <td className="p-4"><StatusBadge status={p.status} /></td>
                                             <td className="p-4"><StatusBadge status={p.paymentStatus} /></td>
                                             <td className="p-4 text-right space-x-2">
-                                                {p.status !== 'FULFILLED' && (
-                                                    <button onClick={() => setReceivePO(p)} className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold hover:bg-blue-100 transition">Receive</button>
+                                                {p.status === 'PENDING APPROVAL' && (
+                                                    <button onClick={() => handleApprovePO(p.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-xs">
+                                                        <i className="fa-solid fa-check mr-1"></i> Approve
+                                                    </button>
+                                                )}
+                                                {p.status !== 'FULFILLED' && p.status !== 'PENDING APPROVAL' && (
+                                                    <button onClick={() => setReceivePO(p)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition shadow-xs">
+                                                        <i className="fa-solid fa-boxes-stacked mr-1"></i> Receive
+                                                    </button>
                                                 )}
                                                 {p.status === 'FULFILLED' && p.paymentStatus === 'UNPAID' && (
-                                                    <button onClick={() => handlePay(p.id)} className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-xs font-semibold hover:bg-emerald-100 transition">Pay Inv</button>
+                                                    <button onClick={() => handlePay(p.id)} className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-semibold hover:bg-teal-100 transition shadow-xs">
+                                                        <i className="fa-solid fa-file-invoice-dollar mr-1"></i> Pay Inv
+                                                    </button>
+                                                )}
+                                                {p.status === 'FULFILLED' && !p.rated && (
+                                                    <button onClick={() => setRatePO(p)} className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold hover:bg-amber-100 transition shadow-xs">
+                                                        <i className="fa-solid fa-star mr-1"></i> Rate Vendor
+                                                    </button>
+                                                )}
+                                                {p.rated && (
+                                                    <span className="text-xs text-slate-400 italic">Rated <i className="fa-solid fa-star text-amber-400"></i></span>
                                                 )}
                                             </td>
                                         </tr>
-                                    ))}
+                                    )) : (
+                                        <tr><td colSpan="8" className="p-12 text-center text-slate-400 font-medium">No Purchase Orders match your search or filter.</td></tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -452,44 +592,343 @@
                     <Modal isOpen={createModal} onClose={() => setCreateModal(false)} title="Draft New Purchase Order">
                         <form onSubmit={handleCreatePO} className="space-y-4">
                             <div>
-                                <label className="block text-sm mb-1">Select Vendor</label>
-                                <select required name="vendorId" className="w-full border rounded-lg p-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Select Vendor</label>
+                                <select required name="vendorId" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm focus:ring-2 focus:ring-primary outline-none">
                                     <option value="">-- Choose Vendor --</option>
-                                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.terms})</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm mb-1">Item Description</label>
-                                <input required list="catalog-items" name="itemName" className="w-full border rounded-lg p-2" placeholder="Type or select from catalog" />
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Item Description</label>
+                                <input required list="catalog-items" name="itemName" className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Type or select from catalog" />
                                 <datalist id="catalog-items">
                                     {catalog.map(c => <option key={c.id} value={c.name} />)}
                                 </datalist>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm mb-1">Quantity</label><input required type="number" name="qty" min="1" className="w-full border rounded-lg p-2" /></div>
-                                <div><label className="block text-sm mb-1">Unit Price ($)</label><input required type="number" step="0.01" name="price" className="w-full border rounded-lg p-2" /></div>
+                                <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Quantity</label><input required type="number" name="qty" min="1" className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" /></div>
+                                <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Unit Price ($)</label><input required type="number" step="0.01" name="price" className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" /></div>
                             </div>
-                            <button type="submit" className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-4">Issue PO</button>
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
+                                <i className="fa-solid fa-circle-info mt-0.5"></i>
+                                <span>POs exceeding $5,000 will automatically require managerial sign-off before being issued.</span>
+                            </div>
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition shadow-sm mt-2">Submit Purchase Order</button>
                         </form>
                     </Modal>
 
                     {/* RECEIVE ITEMS MODAL */}
-                    <Modal isOpen={!!receivePO} onClose={() => setReceivePO(null)} title={`Receive Items - ${receivePO?.id}`}>
+                    <Modal isOpen={!!receivePO} onClose={() => setReceivePO(null)} title={`Log Goods Receipt - ${receivePO?.id}`}>
                         {receivePO && (
                             <form onSubmit={handleReceive} className="space-y-4">
-                                <div className="bg-gray-50 p-3 rounded border text-sm text-gray-700">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm text-slate-700 space-y-1">
                                     <p><strong>Item:</strong> {receivePO.itemName}</p>
-                                    <p><strong>Ordered:</strong> {receivePO.qty} | <strong>Already Received:</strong> {receivePO.receivedQty}</p>
-                                    <p><strong>Pending:</strong> {receivePO.qty - receivePO.receivedQty}</p>
+                                    <p><strong>Ordered Quantity:</strong> {receivePO.qty} units</p>
+                                    <p><strong>Already Received:</strong> {receivePO.receivedQty} units</p>
+                                    <p><strong>Pending Balance:</strong> <span className="font-bold text-indigo-600">{receivePO.qty - receivePO.receivedQty} units</span></p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Quantity Receiving Now</label>
-                                    <input required type="number" name="amount" min="1" max={receivePO.qty - receivePO.receivedQty} defaultValue={receivePO.qty - receivePO.receivedQty} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-primary" />
-                                    <p className="text-xs text-gray-400 mt-1">Cannot exceed remaining pending amount.</p>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Quantity Receiving Now</label>
+                                    <input required type="number" name="amount" min="1" max={receivePO.qty - receivePO.receivedQty} defaultValue={receivePO.qty - receivePO.receivedQty} className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">Log Receipt</button>
+                                <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm">Confirm & Update Inventory</button>
                             </form>
                         )}
+                    </Modal>
+
+                    {/* VENDOR RATING MODAL */}
+                    <Modal isOpen={!!ratePO} onClose={() => setRatePO(null)} title={`Vendor Scorecard - ${ratePO?.vendorName}`}>
+                        {ratePO && (
+                            <form onSubmit={submitVendorRating} className="space-y-4">
+                                <p className="text-sm text-slate-500">Rate vendor performance for completed order <strong>{ratePO.id}</strong> ({ratePO.itemName}).</p>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Product Quality (1-5)</label>
+                                    <select value={ratingData.quality} onChange={(e)=>setRatingData({...ratingData, quality: e.target.value})} className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
+                                        <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                                        <option value="4">⭐⭐⭐⭐ Good</option>
+                                        <option value="3">⭐⭐⭐ Average</option>
+                                        <option value="2">⭐⭐ Below Average</option>
+                                        <option value="1">⭐ Poor</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Delivery Timeliness (1-5)</label>
+                                    <select value={ratingData.delivery} onChange={(e)=>setRatingData({...ratingData, delivery: e.target.value})} className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
+                                        <option value="5">⭐⭐⭐⭐⭐ On Time / Early</option>
+                                        <option value="4">⭐⭐⭐⭐ Minor Delay</option>
+                                        <option value="3">⭐⭐⭐ Noticeable Delay</option>
+                                        <option value="2">⭐⭐ Significant Delay</option>
+                                        <option value="1">⭐ Unacceptable Delay</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Pricing & Invoicing Accuracy (1-5)</label>
+                                    <select value={ratingData.cost} onChange={(e)=>setRatingData({...ratingData, cost: e.target.value})} className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
+                                        <option value="5">⭐⭐⭐⭐⭐ Exact match / Great terms</option>
+                                        <option value="4">⭐⭐⭐⭐ Minor discrepancy resolved</option>
+                                        <option value="3">⭐⭐⭐ Average</option>
+                                        <option value="2">⭐⭐ Billing errors</option>
+                                        <option value="1">⭐ Severe overcharging / Disputed</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 transition shadow-sm mt-2">Submit Scorecard & Update Vendor</button>
+                            </form>
+                        )}
+                    </Modal>
+                </div>
+            );
+        };
+
+        const SourcingView = ({ bids, setBids, pos, setPOs }) => {
+            const { addToast } = useToast();
+            
+            const groupedBids = useMemo(() => {
+                return bids.reduce((acc, bid) => {
+                    if (!acc[bid.itemName]) acc[bid.itemName] = [];
+                    acc[bid.itemName].push(bid);
+                    return acc;
+                }, {});
+            }, [bids]);
+
+            const handleAward = (awardedBid) => {
+                const updatedBids = bids.map(b => b.id === awardedBid.id ? { ...b, status: 'AWARDED' } : b);
+                setBids(updatedBids);
+
+                const newPO = {
+                    id: generateId('PO'),
+                    vendorId: awardedBid.vendorId,
+                    vendorName: awardedBid.vendorName,
+                    itemName: awardedBid.itemName,
+                    qty: 10,
+                    receivedQty: 0,
+                    price: awardedBid.amount,
+                    total: awardedBid.amount * 10,
+                    status: 'ISSUED',
+                    paymentStatus: 'UNPAID',
+                    date: new Date().toISOString().split('T')[0]
+                };
+                setPOs([newPO, ...pos]);
+                addToast(`PO ${newPO.id} generated for winning bidder ${awardedBid.vendorName}!`, 'success');
+            };
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sourcing & Bidding Matrix</h2>
+                            <p className="text-sm text-slate-500 mt-0.5">Compare incoming vendor quotes side-by-side and award purchase orders instantly.</p>
+                        </div>
+                        <button onClick={() => addToast('Simulated incoming vendor bid.', 'info')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
+                            <i className="fa-solid fa-rotate text-slate-400"></i> Refresh Bids
+                        </button>
+                    </div>
+
+                    {Object.entries(groupedBids).map(([item, itemBids]) => {
+                        const pendingBids = itemBids.filter(b => b.status === 'PENDING');
+                        const minAmount = pendingBids.length > 0 ? Math.min(...pendingBids.map(b => b.amount)) : null;
+                        const isAwarded = itemBids.some(b => b.status === 'AWARDED');
+
+                        return (
+                            <div key={item} className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden mb-6">
+                                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                                    <h3 className="font-bold text-base text-slate-800 flex items-center gap-2"><i className="fa-solid fa-box text-slate-400"></i> {item}</h3>
+                                    {isAwarded && <StatusBadge status="AWARDED" />}
+                                </div>
+                                <table className="w-full text-left text-sm text-slate-600">
+                                    <thead className="bg-white border-b border-slate-100 text-xs uppercase tracking-wider text-slate-400">
+                                        <tr>
+                                            <th className="p-4">Vendor</th>
+                                            <th className="p-4">Unit Bid Amount</th>
+                                            <th className="p-4">Status</th>
+                                            <th className="p-4 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {itemBids.map(bid => (
+                                            <tr key={bid.id} className={`border-b border-slate-100 ${bid.amount === minAmount && !isAwarded ? 'bg-emerald-50/50' : 'hover:bg-slate-50'} transition`}>
+                                                <td className="p-4 font-bold text-slate-900">{bid.vendorName}</td>
+                                                <td className="p-4 font-bold text-slate-800">
+                                                    ${bid.amount.toLocaleString()}
+                                                    {bid.amount === minAmount && !isAwarded && <span className="ml-3 text-xs bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">Lowest Bid</span>}
+                                                </td>
+                                                <td className="p-4"><StatusBadge status={bid.status} /></td>
+                                                <td className="p-4 text-right">
+                                                    {!isAwarded && bid.status === 'PENDING' && (
+                                                        <button onClick={() => handleAward(bid)} className="px-3.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-indigo-600 transition shadow-xs">
+                                                            Award & Generate PO
+                                                        </button>
+                                                    )}
+                                                    {bid.status === 'AWARDED' && (
+                                                        <span className="text-slate-400 text-xs italic font-medium">Awarded Winner</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )
+                    })}
+                </div>
+            );
+        };
+
+        const VendorsView = ({ vendors, setVendors }) => {
+            const { addToast } = useToast();
+            const [searchTerm, setSearchTerm] = useState("");
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            
+            const handleAddVendor = (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const newVendor = {
+                    id: generateId('v'),
+                    name: fd.get('name'),
+                    category: fd.get('category'),
+                    contact: fd.get('contact'),
+                    terms: fd.get('terms'),
+                    score: 95
+                };
+                setVendors([...vendors, newVendor]);
+                setIsModalOpen(false);
+                addToast('New vendor successfully registered!', 'success');
+            };
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Vendor Directory & Scorecards</h2>
+                            <p className="text-sm text-slate-500 mt-0.5">Manage partner contacts, payment terms, and performance scores.</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => exportCSV(vendors, 'vendors.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
+                                <i className="fa-solid fa-download text-slate-400"></i> Export CSV
+                            </button>
+                            <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
+                                <i className="fa-solid fa-plus"></i> Add Vendor
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50">
+                            <div className="relative w-80">
+                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                                <input type="text" placeholder="Search vendors..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                        </div>
+                        <table className="w-full text-left text-sm text-slate-600">
+                            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
+                                <tr>
+                                    <th className="p-4">Vendor Name</th>
+                                    <th className="p-4">Category</th>
+                                    <th className="p-4">Contact</th>
+                                    <th className="p-4">Payment Terms</th>
+                                    <th className="p-4">Performance Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {vendors.filter(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())).map(v => (
+                                    <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                        <td className="p-4 font-bold text-slate-900">{v.name}</td>
+                                        <td className="p-4 text-slate-600">{v.category}</td>
+                                        <td className="p-4 text-slate-600">{v.contact}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{v.terms}</td>
+                                        <td className="p-4">
+                                            <span className={`px-3 py-1 rounded-xl text-xs font-bold ${v.score >= 90 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                                {v.score} / 100
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Register New Vendor">
+                        <form onSubmit={handleAddVendor} className="space-y-4">
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Vendor Name</label><input required name="name" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Category</label><input required name="category" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Contact Email</label><input required type="email" name="contact" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Terms</label>
+                                <select name="terms" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm outline-none focus:ring-2 focus:ring-primary">
+                                    <option>Net 15</option>
+                                    <option>Net 30</option>
+                                    <option>Net 60</option>
+                                    <option>Due on Receipt</option>
+                                </select>
+                            </div>
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition shadow-sm mt-2">Save Vendor</button>
+                        </form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const CatalogView = ({ catalog, setCatalog }) => {
+            const { addToast } = useToast();
+            const [searchTerm, setSearchTerm] = useState("");
+            const [isModalOpen, setIsModalOpen] = useState(false);
+
+            const handleAdd = (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                setCatalog([...catalog, { id: generateId('c'), sku: fd.get('sku'), name: fd.get('name'), category: fd.get('category'), stdPrice: parseFloat(fd.get('stdPrice')) }]);
+                setIsModalOpen(false);
+                addToast('Catalog item added successfully!', 'success');
+            };
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Item Master Catalog</h2>
+                            <p className="text-sm text-slate-500 mt-0.5">Standardized SKUs and reference pricing for procurement requisitions.</p>
+                        </div>
+                        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
+                            <i className="fa-solid fa-plus"></i> Add Item
+                        </button>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50">
+                            <div className="relative w-80">
+                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                                <input type="text" placeholder="Search SKU or name..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                        </div>
+                        <table className="w-full text-left text-sm text-slate-600">
+                            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
+                                <tr>
+                                    <th className="p-4">SKU Code</th>
+                                    <th className="p-4">Item Name</th>
+                                    <th className="p-4">Category</th>
+                                    <th className="p-4">Standard Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {catalog.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.sku.toLowerCase().includes(searchTerm.toLowerCase())).map(c => (
+                                    <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                        <td className="p-4 font-mono text-xs text-slate-500">{c.sku}</td>
+                                        <td className="p-4 font-bold text-slate-900">{c.name}</td>
+                                        <td className="p-4 text-slate-600">{c.category}</td>
+                                        <td className="p-4 font-semibold text-slate-800">${c.stdPrice.toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Master Catalog Item">
+                        <form onSubmit={handleAdd} className="space-y-4">
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">SKU Code</label><input required name="sku" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" placeholder="e.g., HW-ROU-09" /></div>
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Item Name</label><input required name="name" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Category</label><input required name="category" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Standard Price ($)</label><input required type="number" step="0.01" name="stdPrice" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition shadow-sm mt-2">Save Catalog Item</button>
+                        </form>
                     </Modal>
                 </div>
             );
@@ -498,48 +937,86 @@
         // --- MAIN APP LAYOUT ---
         const App = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
-            const [vendors, setVendors] = useLocalStorage('proc_vendors', seedVendors);
-            const [catalog, setCatalog] = useLocalStorage('proc_catalog', seedCatalog);
-            const [pos, setPOs] = useLocalStorage('proc_pos', seedPOs);
+            const [vendors, setVendors] = useLocalStorage('procurify_vendors', seedVendors);
+            const [catalog, setCatalog] = useLocalStorage('procurify_catalog', seedCatalog);
+            const [inventory, setInventory] = useLocalStorage('procurify_inventory', seedInventory);
+            const [pos, setPOs] = useLocalStorage('procurify_pos', seedPOs);
+            const [bids, setBids] = useLocalStorage('procurify_bids', seedBids);
+
+            const pendingCount = pos.filter(p => p.status === 'PENDING APPROVAL').length;
+            const lowStockCount = inventory.filter(i => i.stock <= i.minStock).length;
 
             const tabs = [
                 { id: 'dashboard', label: 'Intelligence', icon: 'fa-chart-pie' },
-                { id: 'pos', label: 'Orders & Receiving', icon: 'fa-file-invoice-dollar' },
-                { id: 'catalog', label: 'Item Catalog', icon: 'fa-box-open' },
-                { id: 'vendors', label: 'Vendor Directory', icon: 'fa-address-book' }
+                { id: 'pos', label: 'Orders & Receiving', icon: 'fa-file-invoice-dollar', badge: pendingCount },
+                { id: 'inventory', label: 'Inventory & Reorders', icon: 'fa-boxes-stacked', badge: lowStockCount },
+                { id: 'sourcing', label: 'Sourcing Matrix', icon: 'fa-scale-balanced' },
+                { id: 'vendors', label: 'Vendor Directory', icon: 'fa-address-book' },
+                { id: 'catalog', label: 'Item Catalog', icon: 'fa-box-open' }
             ];
 
             return (
-                <div className="flex h-screen overflow-hidden bg-slate-50">
-                    <aside className="w-64 bg-secondary text-slate-300 flex flex-col shadow-xl z-10">
-                        <div className="p-6 flex items-center gap-3 text-white font-bold text-xl tracking-wide border-b border-slate-700">
-                            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center"><i className="fa-solid fa-boxes-packing text-sm"></i></div>
-                            Procurify
+                <div className="flex h-screen overflow-hidden bg-slate-100">
+                    {/* Modern Sidebar */}
+                    <aside className="w-72 bg-secondary text-slate-300 flex flex-col shadow-2xl z-20">
+                        <div className="p-6 flex items-center gap-3 text-white font-bold text-xl tracking-tight border-b border-slate-800">
+                            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
+                                <i className="fa-solid fa-cube text-white text-sm"></i>
+                            </div>
+                            Procurify <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-md font-mono">OS</span>
                         </div>
-                        <nav className="flex-1 px-4 py-6 space-y-2">
+                        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
                             {tabs.map(tab => (
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-700 hover:text-white'}`}>
-                                    <i className={`fa-solid ${tab.icon} w-5 text-center`}></i> {tab.label}
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/25' : 'hover:bg-slate-800/80 hover:text-white text-slate-400'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <i className={`fa-solid ${tab.icon} w-5 text-center text-base`}></i>
+                                        <span>{tab.label}</span>
+                                    </div>
+                                    {tab.badge > 0 && (
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === tab.id ? 'bg-white text-primary' : 'bg-rose-500 text-white'}`}>
+                                            {tab.badge}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </nav>
-                        <div className="p-4 border-t border-slate-700 text-xs text-center text-slate-500">Procurify OS v2.0</div>
+                        <div className="p-4 border-t border-slate-800 text-xs text-slate-500 flex items-center justify-between">
+                            <span>Enterprise Edition</span>
+                            <span className="font-mono text-emerald-400">● Live</span>
+                        </div>
                     </aside>
 
+                    {/* Main Content Area */}
                     <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shadow-sm z-0">
-                            <div className="text-gray-500 text-sm">Workspace / <span className="font-semibold text-gray-800 capitalize">{activeTab.replace('-', ' ')}</span></div>
+                        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-xs z-10">
+                            <div className="flex items-center gap-2 text-sm text-slate-400 font-medium">
+                                Workspace <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i> 
+                                <span className="font-bold text-slate-800 capitalize">{activeTab.replace('-', ' ')}</span>
+                            </div>
                             <div className="flex items-center gap-4">
-                                <button className="text-gray-400 hover:text-gray-600 transition"><i className="fa-regular fa-bell text-lg"></i></button>
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">JD</div>
+                                <button className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition relative">
+                                    <i className="fa-regular fa-bell"></i>
+                                    {(pendingCount > 0 || lowStockCount > 0) && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>}
+                                </button>
+                                <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white font-bold text-sm flex items-center justify-center shadow-md shadow-indigo-500/20">
+                                        JD
+                                    </div>
+                                    <div className="hidden md:block text-left">
+                                        <p className="text-sm font-bold text-slate-800 leading-tight">Jane Doe</p>
+                        <p className="text-xs text-slate-400 leading-tight mt-0.5">Supply Chain Lead</p>
+                                    </div>
+                                </div>
                             </div>
                         </header>
                         <div className="flex-1 overflow-y-auto p-8">
-                            {activeTab === 'dashboard' && <DashboardView pos={pos} vendors={vendors} />}
-                            {activeTab === 'pos' && <POsView pos={pos} setPOs={setPOs} vendors={vendors} catalog={catalog} />}
-                            {activeTab === 'catalog' && <CatalogView catalog={catalog} setCatalog={setCatalog} />}
+                            {activeTab === 'dashboard' && <DashboardView pos={pos} vendors={vendors} inventory={inventory} />}
+                            {activeTab === 'pos' && <POsView pos={pos} setPOs={setPOs} vendors={vendors} catalog={catalog} setVendors={setVendors} inventory={inventory} setInventory={setInventory} />}
+                            {activeTab === 'inventory' && <InventoryView inventory={inventory} setInventory={setInventory} setPOs={setPOs} pos={pos} vendors={vendors} />}
+                            {activeTab === 'sourcing' && <SourcingView bids={bids} setBids={setBids} pos={pos} setPOs={setPOs} />}
                             {activeTab === 'vendors' && <VendorsView vendors={vendors} setVendors={setVendors} />}
+                            {activeTab === 'catalog' && <CatalogView catalog={catalog} setCatalog={setCatalog} />}
                         </div>
                     </main>
                 </div>
