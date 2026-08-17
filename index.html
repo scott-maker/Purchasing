@@ -3,286 +3,628 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Barcode CSV Formatter</title>
-    <!-- PapaParse CDN for robust CSV parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <title>Procurify SaaS - Procurement & Vendor Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5', // Indigo 600
+                        secondary: '#1e293b', // Slate 800
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- React 18 & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Recharts dependencies (Prop-Types & Recharts UMD) -->
+    <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
+
     <style>
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text: #0f172a;
-            --border: #cbd5e1;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background: var(--card);
-            padding: 32px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid var(--border);
-        }
-
-        h1 {
-            font-size: 1.5rem;
-            margin-top: 0;
-            margin-bottom: 8px;
-        }
-
-        p.subtitle {
-            color: #64748b;
-            font-size: 0.95rem;
-            margin-bottom: 24px;
-            line-height: 1.4;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
-        }
-
-        input[type="file"], input[type="number"], select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 0.95rem;
-            background-color: #fff;
-        }
-
-        .row {
-            display: flex;
-            gap: 16px;
-        }
-
-        .row .form-group {
-            flex: 1;
-        }
-
-        .mapping-section {
-            display: none;
-            background: #f1f5f9;
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            margin-bottom: 20px;
-        }
-
-        button {
-            width: 100%;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-
-        button:disabled {
-            background-color: #94a3b8;
-            cursor: not-allowed;
-        }
-
-        .preview-container {
-            margin-top: 24px;
-            display: none;
-        }
-
-        .preview-container h3 {
-            font-size: 0.95rem;
-            margin-bottom: 8px;
-        }
-
-        pre {
-            background: #0f172a;
-            color: #f8fafc;
-            padding: 12px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            overflow-x: auto;
-            max-height: 180px;
-            margin: 0;
-        }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; }
+        /* Custom Scrollbar for a cleaner SaaS look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
+    <div id="root"></div>
 
-<div class="container">
-    <h1>Barcode CSV Formatter</h1>
-    <p class="subtitle">Upload any CSV file. The app reads your header row to detect columns, reorders them (UPC first, Name second), pads leading zeros, and adds strict double quotes for printing software.</p>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, createContext, useContext } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } = window.Recharts;
 
-    <div class="form-group">
-        <label for="csvFileInput">Upload CSV File</label>
-        <input type="file" id="csvFileInput" accept=".csv" onchange="loadHeaders()">
-    </div>
+        // --- SEED DATA ---
+        const seedVendors = [
+            { id: 'v1', name: 'Acme Corp', category: 'Hardware', contact: 'john@acme.com', terms: 'Net 30', score: 92 },
+            { id: 'v2', name: 'Global Tech', category: 'Software', contact: 'sarah@global.com', terms: 'Net 60', score: 85 },
+            { id: 'v3', name: 'FastLogistics', category: 'Shipping', contact: 'mike@fast.com', terms: 'Net 15', score: 98 }
+        ];
 
-    <!-- Mapping Options (Appears automatically when file is loaded) -->
-    <div class="mapping-section" id="mappingSection">
-        <div class="row">
-            <div class="form-group">
-                <label for="upcSelect">Base UPC Column:</label>
-                <select id="upcSelect"></select>
-            </div>
-            <div class="form-group">
-                <label for="nameSelect">Name Column:</label>
-                <select id="nameSelect"></select>
-            </div>
-        </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="upcLength">Target UPC Length (Digits):</label>
-            <input type="number" id="upcLength" value="12" min="1" max="20">
-        </div>
-    </div>
+        const seedPOs = [
+            { id: 'PO-1001', vendorId: 'v1', vendorName: 'Acme Corp', itemName: 'Server Racks', qty: 5, price: 1200, total: 6000, status: 'ISSUED', date: '2023-10-01' },
+            { id: 'PO-1002', vendorId: 'v2', vendorName: 'Global Tech', itemName: 'Cloud Subscriptions', qty: 1, price: 5000, total: 5000, status: 'PARTIAL RECEIPT', date: '2023-10-15' },
+            { id: 'PO-1003', vendorId: 'v3', vendorName: 'FastLogistics', itemName: 'Freight Q3', qty: 10, price: 150, total: 1500, status: 'FULFILLED', date: '2023-09-20' }
+        ];
 
-    <button id="processBtn" onclick="processAndDownload()" disabled>Format & Download CSV</button>
+        const seedBids = [
+            { id: 'b1', itemName: 'Laptops (ThinkPad)', vendorId: 'v1', vendorName: 'Acme Corp', amount: 950, status: 'PENDING' },
+            { id: 'b2', itemName: 'Laptops (ThinkPad)', vendorId: 'v2', vendorName: 'Global Tech', amount: 890, status: 'PENDING' },
+            { id: 'b3', itemName: 'Office Chairs', vendorId: 'v1', vendorName: 'Acme Corp', amount: 200, status: 'PENDING' },
+            { id: 'b4', itemName: 'Office Chairs', vendorId: 'v3', vendorName: 'FastLogistics', amount: 180, status: 'PENDING' }
+        ];
 
-    <div class="preview-container" id="previewContainer">
-        <h3>Output Preview:</h3>
-        <pre id="previewText"></pre>
-    </div>
-</div>
-
-<script>
-    let rawCsvData = [];
-
-    // Step 1: Read CSV headers and auto-select matching columns
-    function loadHeaders() {
-        const fileInput = document.getElementById('csvFileInput');
-        if (!fileInput.files.length) return;
-
-        Papa.parse(fileInput.files[0], {
-            skipEmptyLines: true,
-            complete: function(results) {
-                rawCsvData = results.data;
-                if (!rawCsvData || rawCsvData.length < 1) {
-                    alert('The uploaded CSV appears to be empty.');
-                    return;
+        // --- CUSTOM HOOKS ---
+        function useLocalStorage(key, initialValue) {
+            const [storedValue, setStoredValue] = useState(() => {
+                try {
+                    const item = window.localStorage.getItem(key);
+                    return item ? JSON.parse(item) : initialValue;
+                } catch (error) {
+                    console.error(error);
+                    return initialValue;
                 }
+            });
 
-                const headers = rawCsvData[0];
-                const upcSelect = document.getElementById('upcSelect');
-                const nameSelect = document.getElementById('nameSelect');
-
-                // Clear previous options
-                upcSelect.innerHTML = '';
-                nameSelect.innerHTML = '';
-
-                // Populate Dropdowns with header choices
-                headers.forEach((header, index) => {
-                    const cleanHeader = (header || `Column ${index + 1}`).trim();
-                    upcSelect.options.add(new Option(cleanHeader, index));
-                    nameSelect.options.add(new Option(cleanHeader, index));
-                });
-
-                // Auto-detect best match using regex
-                headers.forEach((header, index) => {
-                    const h = String(header).toLowerCase();
-                    if (/upc|barcode|code|sku/i.test(h)) {
-                        upcSelect.value = index;
-                    }
-                    if (/name|title|desc|item|product/i.test(h)) {
-                        nameSelect.value = index;
-                    }
-                });
-
-                // Show settings & enable button
-                document.getElementById('mappingSection').style.display = 'block';
-                document.getElementById('processBtn').disabled = false;
-            },
-            error: function(err) {
-                alert('Error parsing CSV: ' + err.message);
-            }
-        });
-    }
-
-    // Step 2: Extract selected columns, pad zeros, wrap quotes, and reorder
-    function processAndDownload() {
-        if (!rawCsvData.length) return;
-
-        const upcIdx = parseInt(document.getElementById('upcSelect').value, 10);
-        const nameIdx = parseInt(document.getElementById('nameSelect').value, 10);
-        const upcLength = parseInt(document.getElementById('upcLength').value, 10);
-
-        let outputRows = [];
-
-        // Dynamic Header Row ("UPC","Name")
-        const origUpcHeader = (rawCsvData[0][upcIdx] || 'UPC').trim();
-        const origNameHeader = (rawCsvData[0][nameIdx] || 'Name').trim();
-        outputRows.push(`"${origUpcHeader}","${origNameHeader}"`);
-
-        // Process Data Rows
-        for (let i = 1; i < rawCsvData.length; i++) {
-            const row = rawCsvData[i];
-            
-            // Extract raw values safely
-            let rawName = (row[nameIdx] !== undefined ? String(row[nameIdx]) : '').trim();
-            let rawUpc = (row[upcIdx] !== undefined ? String(row[upcIdx]) : '').trim();
-
-            // Sanitize UPC (strip non-digits)
-            let digitsOnly = rawUpc.replace(/[^0-9]/g, '');
-
-            // Pad leading zeros
-            let paddedUpc = digitsOnly.padStart(upcLength, '0');
-
-            // Sanitize Name (escape existing double quotes by doubling them)
-            let cleanName = rawName.replace(/"/g, '""');
-
-            // Append standard output: "UPC","Name"
-            outputRows.push(`"${paddedUpc}","${cleanName}"`);
+            const setValue = (value) => {
+                try {
+                    const valueToStore = value instanceof Function ? value(storedValue) : value;
+                    setStoredValue(valueToStore);
+                    window.localStorage.setItem(key, JSON.stringify(valueToStore));
+                } catch (error) {
+                    console.error(error);
+                }
+            };
+            return [storedValue, setValue];
         }
 
-        const finalCsvContent = outputRows.join('\n');
+        // --- UTILS ---
+        const generateId = (prefix) => `${prefix}-${Math.floor(Math.random() * 10000)}`;
+        
+        const exportCSV = (data, filename) => {
+            if (!data || !data.length) return;
+            const keys = Object.keys(data[0]);
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + keys.join(",") + "\n" 
+                + data.map(row => keys.map(k => `"${row[k]}"`).join(",")).join("\n");
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
 
-        // Update Preview
-        const previewContainer = document.getElementById('previewContainer');
-        const previewText = document.getElementById('previewText');
-        previewContainer.style.display = 'block';
-        previewText.textContent = outputRows.slice(0, 6).join('\n') + (outputRows.length > 6 ? '\n...' : '');
+        // --- TOAST CONTEXT ---
+        const ToastContext = createContext();
+        
+        const ToastProvider = ({ children }) => {
+            const [toasts, setToasts] = useState([]);
+            
+            const addToast = (message, type = 'success') => {
+                const id = Date.now();
+                setToasts(prev => [...prev, { id, message, type }]);
+                setTimeout(() => {
+                    setToasts(prev => prev.filter(t => t.id !== id));
+                }, 3000);
+            };
 
-        // Trigger Download
-        downloadFile(finalCsvContent, 'barcode_import.csv');
-    }
+            return (
+                <ToastContext.Provider value={{ addToast }}>
+                    {children}
+                    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+                        {toasts.map(toast => (
+                            <div key={toast.id} className={`fade-in px-4 py-3 rounded-lg shadow-lg text-white flex items-center gap-3 ${toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}>
+                                <i className={`fa-solid ${toast.type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}`}></i>
+                                <span>{toast.message}</span>
+                            </div>
+                        ))}
+                    </div>
+                </ToastContext.Provider>
+            );
+        };
 
-    function downloadFile(content, filename) {
-        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-</script>
+        const useToast = () => useContext(ToastContext);
 
+        // --- UI COMPONENTS ---
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                            <h3 className="font-semibold text-lg text-gray-800">{title}</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><i className="fa-solid fa-times"></i></button>
+                        </div>
+                        <div className="p-6">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const StatusBadge = ({ status }) => {
+            const styles = {
+                'ISSUED': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                'PARTIAL RECEIPT': 'bg-blue-100 text-blue-800 border-blue-200',
+                'FULFILLED': 'bg-green-100 text-green-800 border-green-200',
+                'PENDING': 'bg-gray-100 text-gray-800 border-gray-200',
+                'AWARDED': 'bg-primary bg-opacity-10 text-primary border-primary border-opacity-20'
+            };
+            return (
+                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${styles[status] || 'bg-gray-100'}`}>
+                    {status}
+                </span>
+            );
+        };
+
+        // --- MAIN VIEWS ---
+
+        const DashboardView = ({ pos, vendors }) => {
+            const totalSpend = pos.reduce((sum, po) => sum + po.total, 0);
+            const activePOs = pos.filter(p => p.status !== 'FULFILLED').length;
+            
+            // Prepare Chart Data
+            const spendByVendorMap = pos.reduce((acc, po) => {
+                acc[po.vendorName] = (acc[po.vendorName] || 0) + po.total;
+                return acc;
+            }, {});
+            const chartData = Object.keys(spendByVendorMap).map(key => ({
+                name: key,
+                Spend: spendByVendorMap[key]
+            }));
+
+            return (
+                <div className="fade-in space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Procurement Overview</h2>
+                    
+                    {/* Metric Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xl">
+                                <i className="fa-solid fa-dollar-sign"></i>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Total PO Spend</p>
+                                <p className="text-2xl font-bold text-gray-900">${totalSpend.toLocaleString()}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 text-xl">
+                                <i className="fa-solid fa-file-invoice"></i>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Active POs</p>
+                                <p className="text-2xl font-bold text-gray-900">{activePOs}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl">
+                                <i className="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Active Vendors</p>
+                                <p className="text-2xl font-bold text-gray-900">{vendors.length}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Chart */}
+                    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-6">Spend by Vendor</h3>
+                        <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} />
+                                    <Tooltip cursor={{fill: '#f8fafc'}} formatter={(value) => `$${value.toLocaleString()}`} />
+                                    <Bar dataKey="Spend" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const VendorsView = ({ vendors, setVendors }) => {
+            const { addToast } = useToast();
+            const [searchTerm, setSearchTerm] = useState("");
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            
+            const filteredVendors = vendors.filter(v => 
+                v.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                v.category.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            const handleAddVendor = (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const newVendor = {
+                    id: generateId('v'),
+                    name: fd.get('name'),
+                    category: fd.get('category'),
+                    contact: fd.get('contact'),
+                    terms: fd.get('terms'),
+                    score: 100 // Default perfect score
+                };
+                setVendors([...vendors, newVendor]);
+                setIsModalOpen(false);
+                addToast('Vendor added successfully!');
+            };
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-800">Vendor Directory</h2>
+                        <div className="flex gap-3">
+                            <button onClick={() => exportCSV(vendors, 'vendors.csv')} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                                <i className="fa-solid fa-download mr-2"></i> Export CSV
+                            </button>
+                            <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary rounded-lg text-sm font-medium text-white hover:bg-indigo-700 shadow-sm transition">
+                                <i className="fa-solid fa-plus mr-2"></i> Add Vendor
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 bg-gray-50">
+                            <div className="relative w-72">
+                                <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search vendors..." 
+                                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-gray-600">
+                                <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
+                                    <tr>
+                                        <th className="p-4 font-semibold">Vendor Name</th>
+                                        <th className="p-4 font-semibold">Category</th>
+                                        <th className="p-4 font-semibold">Contact</th>
+                                        <th className="p-4 font-semibold">Terms</th>
+                                        <th className="p-4 font-semibold">Perf. Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredVendors.length > 0 ? filteredVendors.map((v) => (
+                                        <tr key={v.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                                            <td className="p-4 font-medium text-gray-900">{v.name}</td>
+                                            <td className="p-4">{v.category}</td>
+                                            <td className="p-4">{v.contact}</td>
+                                            <td className="p-4">{v.terms}</td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${v.score >= 90 ? 'bg-green-100 text-green-800' : v.score >= 70 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {v.score}/100
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="5" className="p-8 text-center text-gray-400">No vendors found.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add New Vendor">
+                        <form onSubmit={handleAddVendor} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+                                <input required name="name" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-primary outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                <input required name="category" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-primary outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                                <input required type="email" name="contact" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-primary outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                                <select name="terms" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-primary outline-none">
+                                    <option>Net 15</option>
+                                    <option>Net 30</option>
+                                    <option>Net 60</option>
+                                    <option>Due on Receipt</option>
+                                </select>
+                            </div>
+                            <button type="submit" className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition">Save Vendor</button>
+                        </form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const SourcingView = ({ bids, setBids, pos, setPOs }) => {
+            const { addToast } = useToast();
+            
+            // Group bids by Item Name
+            const groupedBids = useMemo(() => {
+                return bids.reduce((acc, bid) => {
+                    if (!acc[bid.itemName]) acc[bid.itemName] = [];
+                    acc[bid.itemName].push(bid);
+                    return acc;
+                }, {});
+            }, [bids]);
+
+            const handleAward = (awardedBid) => {
+                // Update Bids: Mark this awarded, others for this item as rejected (or leave pending, let's keep it simple and just mark this one AWARDED)
+                const updatedBids = bids.map(b => b.id === awardedBid.id ? { ...b, status: 'AWARDED' } : b);
+                setBids(updatedBids);
+
+                // Generate PO
+                const newPO = {
+                    id: generateId('PO'),
+                    vendorId: awardedBid.vendorId,
+                    vendorName: awardedBid.vendorName,
+                    itemName: awardedBid.itemName,
+                    qty: 10, // Hardcoded for demo matrix
+                    price: awardedBid.amount,
+                    total: awardedBid.amount * 10,
+                    status: 'ISSUED',
+                    date: new Date().toISOString().split('T')[0]
+                };
+                setPOs([newPO, ...pos]);
+                addToast(`PO ${newPO.id} generated for ${awardedBid.vendorName}!`);
+            };
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-800">Sourcing & Bidding Matrix</h2>
+                        <button onClick={() => addToast('Simulating new bid...', 'info')} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                            <i className="fa-solid fa-rotate-right mr-2"></i> Refresh Bids
+                        </button>
+                    </div>
+
+                    {Object.entries(groupedBids).map(([item, itemBids]) => {
+                        const pendingBids = itemBids.filter(b => b.status === 'PENDING');
+                        const minAmount = pendingBids.length > 0 ? Math.min(...pendingBids.map(b => b.amount)) : null;
+                        const isAwarded = itemBids.some(b => b.status === 'AWARDED');
+
+                        return (
+                            <div key={item} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+                                <div className="bg-slate-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                                    <h3 className="font-bold text-lg text-gray-800"><i className="fa-solid fa-box-open text-gray-400 mr-2"></i> {item}</h3>
+                                    {isAwarded && <StatusBadge status="AWARDED" />}
+                                </div>
+                                <div className="p-0">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-white border-b">
+                                            <tr>
+                                                <th className="p-4 text-gray-500 font-medium">Vendor</th>
+                                                <th className="p-4 text-gray-500 font-medium">Bid Amount (Unit)</th>
+                                                <th className="p-4 text-gray-500 font-medium">Status</th>
+                                                <th className="p-4 text-gray-500 font-medium text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {itemBids.map(bid => (
+                                                <tr key={bid.id} className={`border-b last:border-0 ${bid.amount === minAmount && !isAwarded ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
+                                                    <td className="p-4 font-medium text-gray-900">{bid.vendorName}</td>
+                                                    <td className="p-4 font-bold text-gray-800">
+                                                        ${bid.amount.toLocaleString()}
+                                                        {bid.amount === minAmount && !isAwarded && <span className="ml-2 text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded-full">Lowest Bid</span>}
+                                                    </td>
+                                                    <td className="p-4"><StatusBadge status={bid.status} /></td>
+                                                    <td className="p-4 text-right">
+                                                        {!isAwarded && bid.status === 'PENDING' && (
+                                                            <button onClick={() => handleAward(bid)} className="px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded hover:bg-indigo-700 transition shadow-sm">
+                                                                Award & Generate PO
+                                                            </button>
+                                                        )}
+                                                        {bid.status === 'AWARDED' && (
+                                                            <span className="text-gray-400 text-sm italic">Awarded</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            );
+        };
+
+        const POsView = ({ pos, setPOs }) => {
+            const [searchTerm, setSearchTerm] = useState("");
+            const { addToast } = useToast();
+
+            const filteredPOs = pos.filter(p => 
+                p.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                p.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.itemName.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            const updateStatus = (id, newStatus) => {
+                setPOs(pos.map(p => p.id === id ? { ...p, status: newStatus } : p));
+                addToast(`PO ${id} status updated to ${newStatus}`);
+            };
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-800">Purchase Orders</h2>
+                        <button onClick={() => exportCSV(pos, 'purchase_orders.csv')} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                            <i className="fa-solid fa-download mr-2"></i> Export CSV
+                        </button>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 bg-gray-50">
+                            <div className="relative w-72">
+                                <i className="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search POs (ID, Vendor, Item)..." 
+                                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-gray-600">
+                                <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
+                                    <tr>
+                                        <th className="p-4 font-semibold">PO Number</th>
+                                        <th className="p-4 font-semibold">Date</th>
+                                        <th className="p-4 font-semibold">Vendor</th>
+                                        <th className="p-4 font-semibold">Item & Qty</th>
+                                        <th className="p-4 font-semibold">Total</th>
+                                        <th className="p-4 font-semibold">Status</th>
+                                        <th className="p-4 font-semibold text-right">Manage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredPOs.length > 0 ? filteredPOs.map((p) => (
+                                        <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                                            <td className="p-4 font-bold text-gray-900">{p.id}</td>
+                                            <td className="p-4">{p.date}</td>
+                                            <td className="p-4 font-medium">{p.vendorName}</td>
+                                            <td className="p-4">{p.itemName} (x{p.qty})</td>
+                                            <td className="p-4 font-semibold text-gray-800">${p.total.toLocaleString()}</td>
+                                            <td className="p-4"><StatusBadge status={p.status} /></td>
+                                            <td className="p-4 text-right">
+                                                <select 
+                                                    value={p.status}
+                                                    onChange={(e) => updateStatus(p.id, e.target.value)}
+                                                    className="border border-gray-300 rounded text-xs p-1 focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+                                                >
+                                                    <option value="ISSUED">Issued</option>
+                                                    <option value="PARTIAL RECEIPT">Partial Receipt</option>
+                                                    <option value="FULFILLED">Fulfilled</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="7" className="p-8 text-center text-gray-400">No Purchase Orders found.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP LAYOUT ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            
+            // State initialized with custom hook for localStorage persistence
+            const [vendors, setVendors] = useLocalStorage('procurify_vendors', seedVendors);
+            const [pos, setPOs] = useLocalStorage('procurify_pos', seedPOs);
+            const [bids, setBids] = useLocalStorage('procurify_bids', seedBids);
+
+            const tabs = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+                { id: 'vendors', label: 'Vendor Directory', icon: 'fa-address-book' },
+                { id: 'sourcing', label: 'Sourcing Matrix', icon: 'fa-scale-balanced' },
+                { id: 'pos', label: 'Purchase Orders', icon: 'fa-file-invoice-dollar' }
+            ];
+
+            return (
+                <div className="flex h-screen overflow-hidden bg-slate-50">
+                    {/* Sidebar */}
+                    <aside className="w-64 bg-secondary text-slate-300 flex flex-col shadow-xl z-10">
+                        <div className="p-6 flex items-center gap-3 text-white font-bold text-xl tracking-wide border-b border-slate-700">
+                            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+                                <i className="fa-solid fa-bolt text-sm"></i>
+                            </div>
+                            Procurify
+                        </div>
+                        <nav className="flex-1 px-4 py-6 space-y-2">
+                            {tabs.map(tab => (
+                                <button 
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                                        activeTab === tab.id 
+                                        ? 'bg-primary text-white shadow-md' 
+                                        : 'hover:bg-slate-700 hover:text-white'
+                                    }`}
+                                >
+                                    <i className={`fa-solid ${tab.icon} w-5 text-center`}></i>
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="p-4 border-t border-slate-700 text-xs text-center text-slate-500">
+                            Procurify v1.0.0
+                        </div>
+                    </aside>
+
+                    {/* Main Content Area */}
+                    <main className="flex-1 flex flex-col h-screen overflow-hidden">
+                        {/* Top Navbar */}
+                        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shadow-sm z-0">
+                            <div className="text-gray-500 text-sm">
+                                Workspace / <span className="font-semibold text-gray-800 capitalize">{activeTab.replace('-', ' ')}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button className="text-gray-400 hover:text-gray-600 transition"><i className="fa-regular fa-bell text-lg"></i></button>
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex justify-center items-center text-indigo-700 font-bold text-sm">
+                                    JS
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-8">
+                            {activeTab === 'dashboard' && <DashboardView pos={pos} vendors={vendors} />}
+                            {activeTab === 'vendors' && <VendorsView vendors={vendors} setVendors={setVendors} />}
+                            {activeTab === 'sourcing' && <SourcingView bids={bids} setBids={setBids} pos={pos} setPOs={setPOs} />}
+                            {activeTab === 'pos' && <POsView pos={pos} setPOs={setPOs} />}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        // Render App inside ToastProvider
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <ToastProvider>
+                <App />
+            </ToastProvider>
+        );
+    </script>
 </body>
 </html>
