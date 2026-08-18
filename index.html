@@ -1,288 +1,629 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Barcode CSV Formatter</title>
-    <!-- PapaParse CDN for robust CSV parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <style>
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text: #0f172a;
-            --border: #cbd5e1;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background: var(--card);
-            padding: 32px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid var(--border);
-        }
-
-        h1 {
-            font-size: 1.5rem;
-            margin-top: 0;
-            margin-bottom: 8px;
-        }
-
-        p.subtitle {
-            color: #64748b;
-            font-size: 0.95rem;
-            margin-bottom: 24px;
-            line-height: 1.4;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
-        }
-
-        input[type="file"], input[type="number"], select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 0.95rem;
-            background-color: #fff;
-        }
-
-        .row {
-            display: flex;
-            gap: 16px;
-        }
-
-        .row .form-group {
-            flex: 1;
-        }
-
-        .mapping-section {
-            display: none;
-            background: #f1f5f9;
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            margin-bottom: 20px;
-        }
-
-        button {
-            width: 100%;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-
-        button:disabled {
-            background-color: #94a3b8;
-            cursor: not-allowed;
-        }
-
-        .preview-container {
-            margin-top: 24px;
-            display: none;
-        }
-
-        .preview-container h3 {
-            font-size: 0.95rem;
-            margin-bottom: 8px;
-        }
-
-        pre {
-            background: #0f172a;
-            color: #f8fafc;
-            padding: 12px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            overflow-x: auto;
-            max-height: 180px;
-            margin: 0;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Store Inventory & Management System</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Compiler for in-browser JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+  <div id="root"></div>
 
-<div class="container">
-    <h1>Barcode CSV Formatter</h1>
-    <p class="subtitle">Upload any CSV file. The app reads your header row to detect columns, reorders them (UPC first, Name second), pads leading zeros, and adds strict double quotes for printing software.</p>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-    <div class="form-group">
-        <label for="csvFileInput">Upload CSV File</label>
-        <input type="file" id="csvFileInput" accept=".csv" onchange="loadHeaders()">
-    </div>
+    // --- INITIAL SEED DATA ---
+    const initialInventory = [
+      { id: 1, name: "Organic Espresso Beans 1lb", brand: "RoastCo", category: "Coffee", upc: "012345678901", bulkUpc: "10012345678908", inStock: 12, reorderPoint: 15, cost: 6.50, price: 14.99, vendorId: 1 },
+      { id: 2, name: "Oat Milk Barista Edition 32oz", brand: "Oatland", category: "Dairy Alt", upc: "012345678902", bulkUpc: "10012345678915", inStock: 4, reorderPoint: 10, cost: 2.10, price: 4.99, vendorId: 2 },
+      { id: 3, name: "Vanilla Syrup 750ml", brand: "FlavorPro", category: "Syrups", upc: "012345678903", bulkUpc: "10012345678922", inStock: 22, reorderPoint: 8, cost: 4.00, price: 9.50, vendorId: 1 }
+    ];
 
-    <!-- Mapping Options (Appears automatically when file is loaded) -->
-    <div class="mapping-section" id="mappingSection">
-        <div class="row">
-            <div class="form-group">
-                <label for="upcSelect">Base UPC Column:</label>
-                <select id="upcSelect"></select>
-            </div>
-            <div class="form-group">
-                <label for="nameSelect">Name Column:</label>
-                <select id="nameSelect"></select>
-            </div>
-        </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="upcLength">Target UPC Length (Digits):</label>
-            <input type="number" id="upcLength" value="12" min="1" max="20">
-        </div>
-    </div>
+    const initialVendors = [
+      { id: 1, name: "Bean & Brew Wholesalers", contact: "Sarah Jenkins", email: "orders@beanbrew.com", phone: "555-0192", terms: "Net 30" },
+      { id: 2, name: "Metro Beverage Supply", contact: "Dave Miller", email: "sales@metrobev.com", phone: "555-0144", terms: "Net 15" }
+    ];
 
-    <button id="processBtn" onclick="processAndDownload()" disabled>Format & Download CSV</button>
+    const initialSalespeople = ["Alice Smith", "Bob Jones", "Charlie Lee"];
 
-    <div class="preview-container" id="previewContainer">
-        <h3>Output Preview:</h3>
-        <pre id="previewText"></pre>
-    </div>
-</div>
+    function App() {
+      const [tab, setTab] = useState("inventory");
 
-<script>
-    let rawCsvData = [];
+      // --- PERSISTENT STATE (LOCAL STORAGE) ---
+      const [inventory, setInventory] = useState(() => {
+        const saved = localStorage.getItem("store_inventory");
+        return saved ? JSON.parse(saved) : initialInventory;
+      });
 
-    // Step 1: Read CSV headers and auto-select matching columns
-    function loadHeaders() {
-        const fileInput = document.getElementById('csvFileInput');
-        if (!fileInput.files.length) return;
+      const [vendors, setVendors] = useState(() => {
+        const saved = localStorage.getItem("store_vendors");
+        return saved ? JSON.parse(saved) : initialVendors;
+      });
 
-        Papa.parse(fileInput.files[0], {
-            skipEmptyLines: true,
-            complete: function(results) {
-                rawCsvData = results.data;
-                if (!rawCsvData || rawCsvData.length < 1) {
-                    alert('The uploaded CSV appears to be empty.');
-                    return;
-                }
+      const [orders, setOrders] = useState(() => {
+        const saved = localStorage.getItem("store_orders");
+        return saved ? JSON.parse(saved) : [];
+      });
 
-                const headers = rawCsvData[0];
-                const upcSelect = document.getElementById('upcSelect');
-                const nameSelect = document.getElementById('nameSelect');
+      const [sales, setSales] = useState(() => {
+        const saved = localStorage.getItem("store_sales");
+        return saved ? JSON.parse(saved) : [];
+      });
 
-                // Clear previous options
-                upcSelect.innerHTML = '';
-                nameSelect.innerHTML = '';
+      useEffect(() => { localStorage.setItem("store_inventory", JSON.stringify(inventory)); }, [inventory]);
+      useEffect(() => { localStorage.setItem("store_vendors", JSON.stringify(vendors)); }, [vendors]);
+      useEffect(() => { localStorage.setItem("store_orders", JSON.stringify(orders)); }, [orders]);
+      useEffect(() => { localStorage.setItem("store_sales", JSON.stringify(sales)); }, [sales]);
 
-                // Populate Dropdowns with header choices
-                headers.forEach((header, index) => {
-                    const cleanHeader = (header || `Column ${index + 1}`).trim();
-                    upcSelect.options.add(new Option(cleanHeader, index));
-                    nameSelect.options.add(new Option(cleanHeader, index));
-                });
+      // --- INVENTORY MANAGEMENT ---
+      const [itemForm, setItemForm] = useState(null);
 
-                // Auto-detect best match using regex
-                headers.forEach((header, index) => {
-                    const h = String(header).toLowerCase();
-                    if (/upc|barcode|code|sku/i.test(h)) {
-                        upcSelect.value = index;
-                    }
-                    if (/name|title|desc|item|product/i.test(h)) {
-                        nameSelect.value = index;
-                    }
-                });
-
-                // Show settings & enable button
-                document.getElementById('mappingSection').style.display = 'block';
-                document.getElementById('processBtn').disabled = false;
-            },
-            error: function(err) {
-                alert('Error parsing CSV: ' + err.message);
-            }
-        });
-    }
-
-    // Step 2: Extract selected columns, pad zeros, wrap quotes, and reorder
-    function processAndDownload() {
-        if (!rawCsvData.length) return;
-
-        const upcIdx = parseInt(document.getElementById('upcSelect').value, 10);
-        const nameIdx = parseInt(document.getElementById('nameSelect').value, 10);
-        const upcLength = parseInt(document.getElementById('upcLength').value, 10);
-
-        let outputRows = [];
-
-        // Dynamic Header Row ("UPC","Name")
-        const origUpcHeader = (rawCsvData[0][upcIdx] || 'UPC').trim();
-        const origNameHeader = (rawCsvData[0][nameIdx] || 'Name').trim();
-        outputRows.push(`"${origUpcHeader}","${origNameHeader}"`);
-
-        // Process Data Rows
-        for (let i = 1; i < rawCsvData.length; i++) {
-            const row = rawCsvData[i];
-            
-            // Extract raw values safely
-            let rawName = (row[nameIdx] !== undefined ? String(row[nameIdx]) : '').trim();
-            let rawUpc = (row[upcIdx] !== undefined ? String(row[upcIdx]) : '').trim();
-
-            // Sanitize UPC (strip non-digits)
-            let digitsOnly = rawUpc.replace(/[^0-9]/g, '');
-
-            // Pad leading zeros
-            let paddedUpc = digitsOnly.padStart(upcLength, '0');
-
-            // Sanitize Name (escape existing double quotes by doubling them)
-            let cleanName = rawName.replace(/"/g, '""');
-
-            // Append standard output: "UPC","Name"
-            outputRows.push(`"${paddedUpc}","${cleanName}"`);
+      const handleSaveItem = (e) => {
+        e.preventDefault();
+        if (itemForm.id) {
+          setInventory(inventory.map(i => i.id === itemForm.id ? itemForm : i));
+        } else {
+          setInventory([...inventory, { ...itemForm, id: Date.now() }]);
         }
+        setItemForm(null);
+      };
 
-        const finalCsvContent = outputRows.join('\n');
+      const handleReconcile = (id, newCount) => {
+        setInventory(inventory.map(item => item.id === id ? { ...item, inStock: parseInt(newCount) || 0 } : item));
+      };
 
-        // Update Preview
-        const previewContainer = document.getElementById('previewContainer');
-        const previewText = document.getElementById('previewText');
-        previewContainer.style.display = 'block';
-        previewText.textContent = outputRows.slice(0, 6).join('\n') + (outputRows.length > 6 ? '\n...' : '');
+      // --- SALES & POS ---
+      const [currentSalesperson, setCurrentSalesperson] = useState(initialSalespeople[0]);
+      const [cart, setCart] = useState([]);
 
-        // Trigger Download
-        downloadFile(finalCsvContent, 'barcode_import.csv');
+      const addToCart = (item) => {
+        const existing = cart.find(c => c.id === item.id);
+        if (existing) {
+          setCart(cart.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c));
+        } else {
+          setCart([...cart, { ...item, qty: 1 }]);
+        }
+      };
+
+      const handleCheckout = () => {
+        if (cart.length === 0) return;
+        setInventory(inventory.map(inv => {
+          const inCart = cart.find(c => c.id === inv.id);
+          return inCart ? { ...inv, inStock: Math.max(0, inv.inStock - inCart.qty) } : inv;
+        }));
+        const total = cart.reduce((acc, c) => acc + (c.price * c.qty), 0);
+        setSales([{ id: Date.now(), salesperson: currentSalesperson, total, date: new Date().toLocaleDateString(), items: cart }, ...sales]);
+        setCart([]);
+        alert("Sale Processed Successfully!");
+      };
+
+      // --- PURCHASING & POS ---
+      const [selectedPoItems, setSelectedPoItems] = useState([]);
+      const [selectedVendorId, setSelectedVendorId] = useState("");
+
+      const togglePoItemSelection = (item) => {
+        if (selectedPoItems.some(i => i.id === item.id)) {
+          setSelectedPoItems(selectedPoItems.filter(i => i.id !== item.id));
+        } else {
+          const orderQty = Math.max(1, (item.reorderPoint * 2) - item.inStock);
+          setSelectedPoItems([...selectedPoItems, { ...item, orderQty }]);
+        }
+      };
+
+      const handleCreatePO = (status = "Draft") => {
+        if (!selectedVendorId || selectedPoItems.length === 0) {
+          alert("Select a vendor and at least one item.");
+          return;
+        }
+        const vendor = vendors.find(v => v.id === parseInt(selectedVendorId));
+        const totalCost = selectedPoItems.reduce((acc, i) => acc + (i.cost * i.orderQty), 0);
+
+        const newPO = {
+          id: "PO-" + Math.floor(1000 + Math.random() * 9000),
+          vendorId: vendor.id,
+          vendorName: vendor.name,
+          terms: vendor.terms,
+          date: new Date().toLocaleDateString(),
+          status, // Draft, Bidding, Rewarded, Partially Received, Received, Closed
+          items: selectedPoItems.map(i => ({ ...i, receivedQty: 0 })),
+          totalCost,
+          amountPaid: 0
+        };
+
+        setOrders([newPO, ...orders]);
+        setSelectedPoItems([]);
+        alert(`Purchase Order ${newPO.id} created.`);
+      };
+
+      const handleReceivePO = (poId, updatedItems, isPartial) => {
+        setOrders(orders.map(po => {
+          if (po.id !== poId) return po;
+          if (!isPartial) {
+            setInventory(prevInv => prevInv.map(invItem => {
+              const rItem = updatedItems.find(ui => ui.id === invItem.id);
+              return rItem ? { ...invItem, inStock: invItem.inStock + parseInt(rItem.receivedQty || 0) } : invItem;
+            }));
+          }
+          return {
+            ...po,
+            items: updatedItems,
+            status: isPartial ? "Partially Received" : "Received"
+          };
+        }));
+      };
+
+      const handleUpdatePayment = (poId, paidAmount) => {
+        setOrders(orders.map(po => {
+          if (po.id === poId) {
+            const newPaid = Math.min(po.totalCost, (po.amountPaid || 0) + parseFloat(paidAmount));
+            return { ...po, amountPaid: newPaid };
+          }
+          return po;
+        }));
+      };
+
+      const handleUpdatePoStatus = (poId, status) => {
+        setOrders(orders.map(po => po.id === poId ? { ...po, status } : po));
+      };
+
+      // --- VENDOR MANAGEMENT ---
+      const [vendorForm, setVendorForm] = useState(null);
+
+      const handleSaveVendor = (e) => {
+        e.preventDefault();
+        if (vendorForm.id) {
+          setVendors(vendors.map(v => v.id === vendorForm.id ? vendorForm : v));
+        } else {
+          setVendors([...vendors, { ...vendorForm, id: Date.now() }]);
+        }
+        setVendorForm(null);
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* NAVIGATION BAR */}
+          <header className="bg-slate-900 text-white shadow">
+            <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center">
+              <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                <span>📦</span> Store Management & Inventory
+              </h1>
+              <nav className="flex space-x-1 mt-2 sm:mt-0">
+                {["inventory", "sales", "purchasing", "vendors"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`px-4 py-2 rounded-md font-medium text-sm capitalize transition ${
+                      tab === t ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </header>
+
+          {/* MAIN VIEW SYSTEM */}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+            
+            {/* INVENTORY SECTION */}
+            {tab === "inventory" && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Inventory Control & Reconciliation</h2>
+                  <button
+                    onClick={() => setItemForm({ name: "", brand: "", category: "", upc: "", bulkUpc: "", inStock: 0, reorderPoint: 5, cost: 0, price: 0, vendorId: vendors[0]?.id || "" })}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700"
+                  >
+                    + Add New Item
+                  </button>
+                </div>
+
+                {itemForm && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <form onSubmit={handleSaveItem} className="bg-white rounded-xl p-6 max-w-lg w-full space-y-4 shadow-xl">
+                      <h3 className="text-lg font-bold">{itemForm.id ? "Edit Item" : "New Inventory Item"}</h3>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <input className="border p-2 rounded" placeholder="Item Name" value={itemForm.name} onChange={e => setItemForm({...itemForm, name: e.target.value})} required />
+                        <input className="border p-2 rounded" placeholder="Brand" value={itemForm.brand} onChange={e => setItemForm({...itemForm, brand: e.target.value})} required />
+                        <input className="border p-2 rounded" placeholder="Category" value={itemForm.category} onChange={e => setItemForm({...itemForm, category: e.target.value})} required />
+                        <select className="border p-2 rounded" value={itemForm.vendorId} onChange={e => setItemForm({...itemForm, vendorId: parseInt(e.target.value)})}>
+                          {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                        </select>
+                        <input className="border p-2 rounded" placeholder="UPC" value={itemForm.upc} onChange={e => setItemForm({...itemForm, upc: e.target.value})} required />
+                        <input className="border p-2 rounded" placeholder="Bulk Order UPC" value={itemForm.bulkUpc} onChange={e => setItemForm({...itemForm, bulkUpc: e.target.value})} />
+                        <div>
+                          <label className="text-xs text-slate-500">In Stock Count</label>
+                          <input type="number" className="border p-2 rounded w-full" value={itemForm.inStock} onChange={e => setItemForm({...itemForm, inStock: parseInt(e.target.value) || 0})} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500">Reorder Point Flag</label>
+                          <input type="number" className="border p-2 rounded w-full" value={itemForm.reorderPoint} onChange={e => setItemForm({...itemForm, reorderPoint: parseInt(e.target.value) || 0})} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500">Cost ($)</label>
+                          <input type="number" step="0.01" className="border p-2 rounded w-full" value={itemForm.cost} onChange={e => setItemForm({...itemForm, cost: parseFloat(e.target.value) || 0})} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500">Sell Price ($)</label>
+                          <input type="number" step="0.01" className="border p-2 rounded w-full" value={itemForm.price} onChange={e => setItemForm({...itemForm, price: parseFloat(e.target.value) || 0})} />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2 pt-2">
+                        <button type="button" onClick={() => setItemForm(null)} className="px-4 py-2 border rounded text-slate-600">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save Item</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                <div className="bg-white rounded-xl shadow overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 border-b text-slate-500">
+                      <tr>
+                        <th className="p-3">Order Pick</th>
+                        <th className="p-3">Item Details</th>
+                        <th className="p-3">UPC / Bulk UPC</th>
+                        <th className="p-3">Vendor</th>
+                        <th className="p-3">Cost / Price</th>
+                        <th className="p-3">In Stock (Reconcile)</th>
+                        <th className="p-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {inventory.map((item) => {
+                        const isLow = item.inStock <= item.reorderPoint;
+                        const vendor = vendors.find(v => v.id === item.vendorId);
+                        const isSelectedForPo = selectedPoItems.some(i => i.id === item.id);
+
+                        return (
+                          <tr key={item.id} className={isLow ? "bg-red-50/50" : ""}>
+                            <td className="p-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelectedForPo}
+                                onChange={() => togglePoItemSelection(item)}
+                                className="w-4 h-4 text-blue-600 rounded"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <div className="font-bold">{item.name}</div>
+                              <div className="text-xs text-slate-500">{item.brand} | {item.category}</div>
+                            </td>
+                            <td className="p-3 text-xs font-mono">
+                              <div>UPC: {item.upc}</div>
+                              <div>BLK: {item.bulkUpc || "N/A"}</div>
+                            </td>
+                            <td className="p-3 text-slate-600">{vendor ? vendor.name : "Unassigned"}</td>
+                            <td className="p-3">
+                              <div className="text-xs text-slate-500">Cost: ${item.cost.toFixed(2)}</div>
+                              <div className="font-semibold text-emerald-700">${item.price.toFixed(2)}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="number"
+                                  value={item.inStock}
+                                  onChange={(e) => handleReconcile(item.id, e.target.value)}
+                                  className={`w-16 border rounded p-1 font-bold text-center ${
+                                    isLow ? "border-red-500 text-red-600" : "border-slate-300"
+                                  }`}
+                                />
+                                {isLow && (
+                                  <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full font-semibold">
+                                    Low (&le;{item.reorderPoint})
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <button onClick={() => setItemForm(item)} className="text-blue-600 hover:underline text-xs">Edit</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {selectedPoItems.length > 0 && (
+                  <div className="fixed bottom-4 right-4 bg-slate-900 text-white p-4 rounded-xl shadow-2xl flex items-center space-x-4">
+                    <div>
+                      <span className="font-bold text-blue-400">{selectedPoItems.length}</span> items selected
+                    </div>
+                    <select
+                      className="bg-slate-800 border border-slate-700 text-sm rounded p-2 text-white"
+                      value={selectedVendorId}
+                      onChange={(e) => setSelectedVendorId(e.target.value)}
+                    >
+                      <option value="">Select Target Vendor...</option>
+                      {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                    <button
+                      onClick={() => handleCreatePO("Draft")}
+                      className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-sm font-semibold"
+                    >
+                      Create PO
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SALES SECTION */}
+            {tab === "sales" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="bg-white p-4 rounded-xl shadow flex justify-between items-center">
+                    <h2 className="text-xl font-bold">POS Terminal</h2>
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm font-medium">Salesperson:</label>
+                      <select
+                        className="border rounded p-1 text-sm bg-slate-50"
+                        value={currentSalesperson}
+                        onChange={(e) => setCurrentSalesperson(e.target.value)}
+                      >
+                        {initialSalespeople.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {inventory.map((item) => (
+                      <div key={item.id} className="bg-white p-4 rounded-xl shadow border flex justify-between items-center">
+                        <div>
+                          <div className="font-bold">{item.name}</div>
+                          <div className="text-sm text-slate-500">${item.price.toFixed(2)} | Stock: {item.inStock}</div>
+                        </div>
+                        <button
+                          disabled={item.inStock <= 0}
+                          onClick={() => addToCart(item)}
+                          className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm disabled:opacity-50 hover:bg-emerald-700"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow flex flex-col justify-between h-fit">
+                  <div>
+                    <h3 className="text-lg font-bold border-b pb-3 mb-4">Current Order</h3>
+                    {cart.length === 0 ? (
+                      <div className="text-slate-400 text-center py-8">Cart is empty</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {cart.map((c) => (
+                          <div key={c.id} className="flex justify-between items-center text-sm">
+                            <div>
+                              <div className="font-semibold">{c.name}</div>
+                              <div className="text-slate-500">${c.price.toFixed(2)} x {c.qty}</div>
+                            </div>
+                            <div className="font-bold">${(c.price * c.qty).toFixed(2)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-4 mt-6">
+                    <div className="flex justify-between text-lg font-bold mb-4">
+                      <span>Total:</span>
+                      <span>${cart.reduce((acc, c) => acc + (c.price * c.qty), 0).toFixed(2)}</span>
+                    </div>
+                    <button
+                      onClick={handleCheckout}
+                      disabled={cart.length === 0}
+                      className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold text-center disabled:opacity-50 hover:bg-emerald-700"
+                    >
+                      Complete Sale
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PURCHASING & PO BIDS */}
+            {tab === "purchasing" && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Purchasing & Vendor Bids</h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500">
+                    <div className="text-xs text-slate-500 font-bold uppercase">Total Ordered</div>
+                    <div className="text-2xl font-bold">${orders.reduce((a, b) => a + b.totalCost, 0).toFixed(2)}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow border-l-4 border-emerald-500">
+                    <div className="text-xs text-slate-500 font-bold uppercase">Total Paid</div>
+                    <div className="text-2xl font-bold">${orders.reduce((a, b) => a + (b.amountPaid || 0), 0).toFixed(2)}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow border-l-4 border-red-500">
+                    <div className="text-xs text-slate-500 font-bold uppercase">Total Owed At Present</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      ${orders.reduce((a, b) => a + (b.totalCost - (b.amountPaid || 0)), 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {orders.length === 0 ? (
+                    <div className="bg-white p-8 text-center text-slate-500 rounded-xl">No purchase orders created yet. Select low stock items from Inventory tab to build one.</div>
+                  ) : (
+                    orders.map(po => {
+                      const balanceDue = po.totalCost - (po.amountPaid || 0);
+                      return (
+                        <div key={po.id} className="bg-white p-6 rounded-xl shadow space-y-4">
+                          <div className="flex flex-wrap justify-between items-center gap-2 border-b pb-3">
+                            <div>
+                              <span className="font-bold text-lg">{po.id}</span>
+                              <span className="text-slate-500 text-sm ml-2">Vendor: <strong>{po.vendorName}</strong></span>
+                              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded ml-2">Terms: {po.terms}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs font-semibold uppercase text-slate-400">Status:</span>
+                              <select
+                                className="border rounded text-sm p-1 bg-slate-50 font-medium"
+                                value={po.status}
+                                onChange={(e) => handleUpdatePoStatus(po.id, e.target.value)}
+                              >
+                                <option value="Draft">Draft</option>
+                                <option value="Bidding">Out for Bids</option>
+                                <option value="Rewarded">Bid Rewarded</option>
+                                <option value="Partially Received">Partially Received</option>
+                                <option value="Received">Fully Received</option>
+                                <option value="Closed">Closed</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                              <thead className="text-slate-500 border-b">
+                                <tr>
+                                  <th className="py-1">Item</th>
+                                  <th className="py-1">Order Qty</th>
+                                  <th className="py-1">Unit Cost</th>
+                                  <th className="py-1">Received Qty</th>
+                                  <th className="py-1">Line Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {po.items.map((item, idx) => (
+                                  <tr key={idx}>
+                                    <td className="py-2">{item.name}</td>
+                                    <td className="py-2">{item.orderQty}</td>
+                                    <td className="py-2">${item.cost.toFixed(2)}</td>
+                                    <td className="py-2">
+                                      <input
+                                        type="number"
+                                        className="w-16 border rounded p-1 text-center"
+                                        value={item.receivedQty || 0}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value) || 0;
+                                          const newItems = po.items.map((it, i) => i === idx ? { ...it, receivedQty: val } : it);
+                                          handleReceivePO(po.id, newItems, true);
+                                        }}
+                                      />
+                                    </td>
+                                    <td className="py-2 font-semibold">${(item.orderQty * item.cost).toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="flex flex-wrap justify-between items-center bg-slate-50 p-4 rounded-lg text-sm">
+                            <div className="space-x-4">
+                              <span>Total Cost: <strong>${po.totalCost.toFixed(2)}</strong></span>
+                              <span>Paid: <strong className="text-emerald-600">${(po.amountPaid || 0).toFixed(2)}</strong></span>
+                              <span>Owed: <strong className="text-red-600">${balanceDue.toFixed(2)}</strong></span>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-2 sm:mt-0">
+                              <button
+                                onClick={() => handleReceivePO(po.id, po.items, false)}
+                                className="bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 text-xs font-semibold"
+                              >
+                                Process Inventory Receipt
+                              </button>
+                              {balanceDue > 0 && (
+                                <button
+                                  onClick={() => {
+                                    const p = prompt("Enter payment amount ($):", balanceDue);
+                                    if (p) handleUpdatePayment(po.id, p);
+                                  }}
+                                  className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 text-xs font-semibold"
+                                >
+                                  Record Payment
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* VENDORS SECTION */}
+            {tab === "vendors" && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Vendor Directory & Terms</h2>
+                  <button
+                    onClick={() => setVendorForm({ name: "", contact: "", email: "", phone: "", terms: "Net 30" })}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700"
+                  >
+                    + Add New Vendor
+                  </button>
+                </div>
+
+                {vendorForm && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <form onSubmit={handleSaveVendor} className="bg-white rounded-xl p-6 max-w-md w-full space-y-4 shadow-xl">
+                      <h3 className="text-lg font-bold">{vendorForm.id ? "Edit Vendor" : "New Vendor"}</h3>
+                      <input className="border p-2 rounded w-full text-sm" placeholder="Vendor Name" value={vendorForm.name} onChange={e => setVendorForm({...vendorForm, name: e.target.value})} required />
+                      <input className="border p-2 rounded w-full text-sm" placeholder="Contact Person" value={vendorForm.contact} onChange={e => setVendorForm({...vendorForm, contact: e.target.value})} />
+                      <input className="border p-2 rounded w-full text-sm" placeholder="Email" value={vendorForm.email} onChange={e => setVendorForm({...vendorForm, email: e.target.value})} />
+                      <input className="border p-2 rounded w-full text-sm" placeholder="Phone" value={vendorForm.phone} onChange={e => setVendorForm({...vendorForm, phone: e.target.value})} />
+                      <input className="border p-2 rounded w-full text-sm" placeholder="Payment Terms (e.g. Net 30, COD)" value={vendorForm.terms} onChange={e => setVendorForm({...vendorForm, terms: e.target.value})} />
+                      <div className="flex justify-end space-x-2 pt-2">
+                        <button type="button" onClick={() => setVendorForm(null)} className="px-4 py-2 border rounded text-slate-600 text-sm">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Save Vendor</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                <div className="bg-white rounded-xl shadow overflow-hidden">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 border-b text-slate-500">
+                      <tr>
+                        <th className="p-3">Vendor Name</th>
+                        <th className="p-3">Contact</th>
+                        <th className="p-3">Email / Phone</th>
+                        <th className="p-3">Terms</th>
+                        <th className="p-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {vendors.map(v => (
+                        <tr key={v.id}>
+                          <td className="p-3 font-bold">{v.name}</td>
+                          <td className="p-3">{v.contact}</td>
+                          <td className="p-3 text-slate-600">
+                            <div>{v.email}</div>
+                            <div className="text-xs text-slate-400">{v.phone}</div>
+                          </td>
+                          <td className="p-3 font-semibold text-slate-700">{v.terms}</td>
+                          <td className="p-3">
+                            <button onClick={() => setVendorForm(v)} className="text-blue-600 hover:underline text-xs">Edit</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+          </main>
+        </div>
+      );
     }
 
-    function downloadFile(content, filename) {
-        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-</script>
-
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
