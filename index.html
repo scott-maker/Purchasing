@@ -1,139 +1,474 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fix & Finish Store Ledger & Procurement Engine</title>
-    <!-- Modern UI layout engine -->
-    <script src="https://jsdelivr.net"></script>
-    <style>
-        .active-tab { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; font-weight: 700; }
-        .terminal-scroll::-webkit-scrollbar { width: 6px; }
-        .terminal-scroll::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 3px; }
-    </style>
+    <title>Enterprise Procurement & Logistics Lifecycle</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen">
+<body class="h-full text-slate-800 antialiased" x-data="procurementApp()">
 
-    <!-- Global App Shell Header -->
-    <header class="bg-slate-950 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <span class="text-2xl">🎨</span>
-                <div>
-                    <h1 class="text-lg font-bold tracking-tight text-white">Fix & Finish Supplies</h1>
-                    <p class="text-xs text-slate-400">Single-Approval Storefront Procurement Portal</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="text-right hidden sm:block">
-                    <span class="text-xs text-slate-400">Inventory Sync Status</span>
-                    <p id="sync-pill" class="text-xs text-emerald-400 font-mono flex items-center justify-end gap-1">
-                        <span class="h-2 w-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span> Local Storage Cache Active
-                    </p>
-                </div>
-                <button onclick="clearSystemCache()" class="text-xs bg-slate-800 hover:bg-red-950 border border-slate-700 hover:border-red-900 px-3 py-2 rounded-lg font-semibold transition text-slate-300 hover:text-red-200">
-                    Reset System
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <!-- Left 2 Columns: Workflow Controls -->
-        <div class="lg:col-span-2 space-y-8">
-            
-            <!-- Step Navigation Banner -->
-            <div class="bg-slate-950 rounded-xl border border-slate-800 p-2 flex flex-wrap gap-1 shadow-md">
-                <button onclick="showPhase(1)" id="btn-p1" class="flex-1 py-3 px-4 rounded-lg text-sm text-center transition-all cursor-pointer active-tab">
-                    Phase 1: Sourcing & RFQs
-                </button>
-                <button onclick="showPhase(2)" id="btn-p2" class="flex-1 py-3 px-4 rounded-lg text-sm text-center transition-all cursor-pointer text-slate-400 hover:bg-slate-900">
-                    Phase 2: Bid Sign-Off
-                </button>
-                <button onclick="showPhase(3)" id="btn-p3" class="flex-1 py-3 px-4 rounded-lg text-sm text-center transition-all cursor-pointer text-slate-400 hover:bg-slate-900">
-                    Phase 3: Logistics Match
-                </button>
-            </div>
-
-            <!-- PHASE 1 PANEL -->
-            <section id="panel-p1" class="bg-slate-950 rounded-xl border border-slate-800 shadow-md overflow-hidden">
-                <div class="p-6 border-b border-slate-800 bg-slate-900/50 flex flex-wrap justify-between items-center gap-4">
+    <div class="min-h-full flex flex-col">
+        <!-- Top Navigation -->
+        <header class="bg-slate-900 text-white sticky top-0 z-50 border-b border-slate-800 shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-indigo-600 p-2 rounded-lg">
+                        <i data-lucide="boxes" class="w-6 h-6 text-white"></i>
+                    </div>
                     <div>
-                        <h2 class="text-base font-bold text-white">Phase 1: Sourcing & Pricing (Days 1–3)</h2>
-                        <p class="text-xs text-slate-400">Initialize single-owner purchase requests and initialize split-vendor RFQs.</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="loadTemplate('paint')" class="text-xs bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 border border-blue-900/50 px-2.5 py-1.5 rounded-md font-medium transition">
-                            + Paint Stock
-                        </button>
-                        <button onclick="loadTemplate('hardware')" class="text-xs bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 border border-purple-900/50 px-2.5 py-1.5 rounded-md font-medium transition">
-                            + Hardware Bulk
-                        </button>
+                        <h1 class="font-bold text-lg leading-tight">ProcureFlow Enterprise</h1>
+                        <p class="text-xs text-slate-400">Lifecycle & Supply Chain Management</p>
                     </div>
                 </div>
+                <!-- Alert Counter Badges -->
+                <div class="flex items-center space-x-4">
+                    <button @click="activeTab = 'inventory'" class="relative p-2 text-slate-300 hover:text-white transition">
+                        <i data-lucide="package-search" class="w-5 h-5"></i>
+                        <template x-if="lowStockCount > 0">
+                            <span class="absolute top-1 right-1 bg-amber-500 text-xs font-bold text-slate-900 rounded-full h-4 w-4 flex items-center justify-center" x-text="lowStockCount"></span>
+                        </template>
+                    </button>
+                    <button @click="activeTab = 'matching'" class="relative p-2 text-slate-300 hover:text-white transition">
+                        <i data-lucide="bell" class="w-5 h-5"></i>
+                        <template x-if="discrepancyCount > 0">
+                            <span class="absolute top-1 right-1 bg-rose-500 text-xs font-bold text-white rounded-full h-4 w-4 flex items-center justify-center" x-text="discrepancyCount"></span>
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Sidebar Navigation -->
+            <nav class="lg:col-span-3 space-y-2">
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-2">Workflow Hub</div>
+                <button @click="activeTab = 'phase1'" :class="activeTab === 'phase1' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'" class="w-full text-left px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-between transition">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i>
+                        <span>Phase 1: Sourcing</span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600" :class="activeTab === 'phase1' && 'bg-indigo-700 text-white'">Days 1-3</span>
+                </button>
+
+                <button @click="activeTab = 'phase2'" :class="activeTab === 'phase2' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'" class="w-full text-left px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-between transition">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="git-compare" class="w-4 h-4"></i>
+                        <span>Phase 2: Evaluation</span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600" :class="activeTab === 'phase2' && 'bg-indigo-700 text-white'">Days 4-5</span>
+                </button>
+
+                <button @click="activeTab = 'phase3'" :class="activeTab === 'phase3' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'" class="w-full text-left px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-between transition">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="truck" class="w-4 h-4"></i>
+                        <span>Phase 3: Receipt & QC</span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600" :class="activeTab === 'phase3' && 'bg-indigo-700 text-white'">Days 6+</span>
+                </button>
+
+                <div class="pt-6 text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-2">High-Utility Utilities</div>
+                <button @click="activeTab = 'vendors'" :class="activeTab === 'vendors' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'" class="w-full text-left px-4 py-3 rounded-xl font-medium text-sm flex items-center space-x-3 transition">
+                    <i data-lucide="award" class="w-4 h-4"></i>
+                    <span>Vendor Scorecards</span>
+                </button>
+
+                <button @click="activeTab = 'inventory'" :class="activeTab === 'inventory' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'" class="w-full text-left px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-between transition">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                        <span>Buffer Stock Monitor</span>
+                    </div>
+                    <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold" x-text="lowStockCount"></span>
+                </button>
+
+                <button @click="activeTab = 'matching'" :class="activeTab === 'matching' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'" class="w-full text-left px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-between transition">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="file-check-2" class="w-4 h-4"></i>
+                        <span>Three-Way Match</span>
+                    </div>
+                    <span class="text-xs bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-bold" x-text="discrepancyCount"></span>
+                </button>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main class="lg:col-span-9 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm min-h-[600px]">
                 
-                <div class="p-6 space-y-6">
-                    <form onsubmit="executePhase1(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div class="md:col-span-1">
-                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Item Group Profile</label>
-                            <input type="text" id="p1-item" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Zinc Screws, Latex Base">
-                        </div>
+                <!-- PHASE 1: SOURCING & PRICING -->
+                <section x-show="activeTab === 'phase1'" class="space-y-6">
+                    <div class="border-b pb-4 border-slate-100 flex justify-between items-center">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Target Volume Qty</label>
-                            <input type="number" id="p1-qty" min="1" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Count units">
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2.5 px-4 rounded-lg shadow-md transition cursor-pointer">
-                            Build Drafts & RFQs
-                        </button>
-                    </form>
-
-                    <!-- Active Requisition Ledger -->
-                    <div class="pt-4 border-t border-slate-800">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Active Internal Requisition Record</h3>
-                        <div id="p1-ledger-card" class="bg-slate-900 rounded-lg border border-slate-800 p-4 text-sm space-y-2 text-slate-400">
-                            No active items configured. Use forms above or sample buttons to populate fields.
+                            <h2 class="text-xl font-bold text-slate-900">Phase 1: Sourcing & Pricing (Days 1–3)</h2>
+                            <p class="text-sm text-slate-500">Initiate purchase requisitions, dispatch RFQs, and prepare draft POs.</p>
                         </div>
                     </div>
-                </div>
-            </section>
 
-            <!-- PHASE 2 PANEL -->
-            <section id="panel-p2" class="hidden bg-slate-950 rounded-xl border border-slate-800 shadow-md overflow-hidden">
-                <div class="p-6 border-b border-slate-800 bg-slate-900/50">
-                    <h2 class="text-base font-bold text-white">Phase 2: Evaluation & Commitment (Days 4–5)</h2>
-                    <p class="text-xs text-slate-400">Analyze vendor quotations side-by-side. Single-person sign-off dispatches the winning PO instantly.</p>
-                </div>
-                <div class="p-6 space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Vendor A Block -->
-                        <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
-                            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                                <h3 class="text-sm font-bold text-blue-400">🏢 Vendor A: PaintWholesale Corp</h3>
-                                <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-900/50 font-mono">98% Fill</span>
+                    <!-- Step 1: Create Purchase Requisition -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                        <h3 class="font-semibold text-slate-800 flex items-center space-x-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                            <span>Create Purchase Requisition</span>
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <input type="text" x-model="newReq.item" placeholder="Item Specifications" class="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input type="number" x-model="newReq.qty" placeholder="Quantity" class="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input type="date" x-model="newReq.targetDate" class="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <button @click="createRequisition()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">Save Requisition</button>
+                    </div>
+
+                    <!-- Step 2 & 3: Active Requisitions Table -->
+                    <div class="space-y-3">
+                        <h3 class="font-semibold text-slate-800">Active Requisitions & RFQ Status</h3>
+                        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                            <table class="w-full text-left text-sm text-slate-600">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-slate-700 font-medium">
+                                    <tr>
+                                        <th class="p-3">Req ID</th>
+                                        <th class="p-3">Item Specs</th>
+                                        <th class="p-3">Qty</th>
+                                        <th class="p-3">Target Date</th>
+                                        <th class="p-3">RFQ & Draft PO Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="req in requisitions" :key="req.id">
+                                        <tr class="border-b border-slate-100">
+                                            <td class="p-3 font-mono text-xs font-semibold" x-text="req.id"></td>
+                                            <td class="p-3" x-text="req.item"></td>
+                                            <td class="p-3" x-text="req.qty"></td>
+                                            <td class="p-3" x-text="req.targetDate"></td>
+                                            <td class="p-3">
+                                                <button @click="issueRFQ(req)" :disabled="req.rfqIssued" 
+                                                        :class="req.rfqIssued ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'"
+                                                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                                                    <span x-text="req.rfqIssued ? 'RFQs & Draft POs Sent' : 'Issue RFQs & Draft POs'"></span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PHASE 2: EVALUATION & COMMITMENT -->
+                <section x-show="activeTab === 'phase2'" class="space-y-6">
+                    <div class="border-b pb-4 border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-900">Phase 2: Evaluation & Commitment (Days 4–5)</h2>
+                        <p class="text-sm text-slate-500">Compare binding quotes, finalize purchase orders, and capture acknowledgements.</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="font-semibold text-slate-800">Vendor Quotes Comparison Matrix</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <template x-for="bid in vendorBids" :key="bid.vendor">
+                                <div class="border rounded-xl p-4 space-y-3 relative" :class="bid.selected ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200'">
+                                    <div class="flex justify-between items-center">
+                                        <h4 class="font-bold text-slate-900" x-text="bid.vendor"></h4>
+                                        <span class="text-xs font-semibold px-2 py-1 rounded-full" :class="bid.status === 'Draft' ? 'bg-amber-100 text-amber-800' : (bid.status === 'Finalized' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800')" x-text="bid.status"></span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                                        <div>Base Unit Cost: <span class="font-bold text-slate-900" x-text="'$' + bid.unitPrice"></span></div>
+                                        <div>Shipping Fee: <span class="font-bold text-slate-900" x-text="'$' + bid.shipping"></span></div>
+                                        <div>Lead Time: <span class="font-bold text-slate-900" x-text="bid.leadTime + ' Days'"></span></div>
+                                        <div>Payment Terms: <span class="font-bold text-slate-900" x-text="bid.terms"></span></div>
+                                    </div>
+                                    <div class="pt-2 flex space-x-2">
+                                        <button x-show="bid.status === 'Draft'" @click="finalizeWinningPO(bid.vendor)" class="w-full bg-slate-900 text-white py-1.5 rounded-lg text-xs font-medium hover:bg-slate-800 transition">
+                                            Finalize Winning PO
+                                        </button>
+                                        <button x-show="bid.status === 'Finalized' && !bid.acknowledged" @click="dispatchAndAcknowledge(bid)" class="w-full bg-indigo-600 text-white py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-700 transition">
+                                            Approve, Dispatch & Require Ack
+                                        </button>
+                                    </div>
+                                    <div x-show="bid.acknowledged" class="text-xs text-emerald-700 font-medium flex items-center space-x-1">
+                                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                                        <span>Order Acknowledged in Writing</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PHASE 3: LOGISTICS & RECEIPT -->
+                <section x-show="activeTab === 'phase3'" class="space-y-6">
+                    <div class="border-b pb-4 border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-900">Phase 3: Logistics & Receipt (Days 6+)</h2>
+                        <p class="text-sm text-slate-500">Receive goods, log partial receivables, conduct QC, and perform 3-way matching.</p>
+                    </div>
+
+                    <!-- Step 1 & 2: Log Receivables -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                        <h3 class="font-semibold text-slate-800">Receive Goods & Packing Slip Logging</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="text-xs font-medium text-slate-600">PO Expected Qty: 100</label>
+                                <input type="number" x-model="receiptLog.qtyReceived" placeholder="Qty Received" class="w-full px-3 py-2 border rounded-lg text-sm">
                             </div>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-xs text-slate-400 mb-1">Base Unit Quote ($)</label>
-                                    <input type="number" step="0.01" id="vA-unit" oninput="runEvaluationMath()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value="14.50">
+                            <div>
+                                <label class="text-xs font-medium text-slate-600">QC Status</label>
+                                <select x-model="receiptLog.qcPassed" class="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                                    <option :value="true">Passed Inspection</option>
+                                    <option :value="false">Defect/Damage Found</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button @click="processReceiving()" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">Log Goods Receipt</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Display -->
+                    <div class="border border-slate-200 rounded-xl p-4 space-y-2" x-show="receiptLog.status !== 'Pending'">
+                        <div class="flex justify-between items-center">
+                            <span class="font-semibold text-sm text-slate-800">PO Status:</span>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold" :class="receiptLog.status === 'Fully Received' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'" x-text="receiptLog.status"></span>
+                        </div>
+                        <p class="text-xs text-slate-600" x-text="receiptLog.notes"></p>
+                    </div>
+                </section>
+
+                <!-- VENDOR PERFORMANCE SCORECARD -->
+                <section x-show="activeTab === 'vendors'" class="space-y-6">
+                    <div class="border-b pb-4 border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-900">Vendor Performance Scorecard</h2>
+                        <p class="text-sm text-slate-500">Track vendor delivery reliability and partial shipment history.</p>
+                    </div>
+
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-slate-700 font-medium">
+                                <tr>
+                                    <th class="p-3">Vendor Name</th>
+                                    <th class="p-3">On-Time %</th>
+                                    <th class="p-3">Partial Order Rate</th>
+                                    <th class="p-3">Defect Rate</th>
+                                    <th class="p-3">Overall Rating</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="v in vendorScorecards" :key="v.name">
+                                    <tr class="border-b border-slate-100">
+                                        <td class="p-3 font-semibold text-slate-900" x-text="v.name"></td>
+                                        <td class="p-3" x-text="v.onTime + '%'"></td>
+                                        <td class="p-3" x-text="v.partialRate + '%'"></td>
+                                        <td class="p-3" x-text="v.defectRate + '%'"></td>
+                                        <td class="p-3">
+                                            <span class="px-2 py-0.5 rounded text-xs font-bold" :class="v.score >= 90 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'" x-text="v.score + ' / 100'"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- BUFFER STOCK CALCULATIONS -->
+                <section x-show="activeTab === 'inventory'" class="space-y-6">
+                    <div class="border-b pb-4 border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-900">Buffer Stock Calculations</h2>
+                        <p class="text-sm text-slate-500">Automated safety threshold monitoring for proactive replenishment.</p>
+                    </div>
+
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-slate-700 font-medium">
+                                <tr>
+                                    <th class="p-3">SKU / Item</th>
+                                    <th class="p-3">Current Stock</th>
+                                    <th class="p-3">Safety Threshold</th>
+                                    <th class="p-3">Status</th>
+                                    <th class="p-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="item in inventory" :key="item.sku">
+                                    <tr class="border-b border-slate-100">
+                                        <td class="p-3 font-semibold text-slate-900" x-text="item.name"></td>
+                                        <td class="p-3 font-mono" x-text="item.stock"></td>
+                                        <td class="p-3 font-mono" x-text="item.threshold"></td>
+                                        <td class="p-3">
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-bold" :class="item.stock < item.threshold ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'" x-text="item.stock < item.threshold ? 'Low Stock Threshold' : 'Optimal'"></span>
+                                        </td>
+                                        <td class="p-3">
+                                            <button x-show="item.stock < item.threshold" @click="autoReorder(item)" class="bg-indigo-600 text-white px-2.5 py-1 rounded text-xs hover:bg-indigo-700 transition">Auto Reorder</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- THREE-WAY MATCHING & DISCREPANCY ALERTS -->
+                <section x-show="activeTab === 'matching'" class="space-y-6">
+                    <div class="border-b pb-4 border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-900">Three-Way Matching & Discrepancies</h2>
+                        <p class="text-sm text-slate-500">Automated verification between Purchase Order, Receiving Log, and Vendor Invoice.</p>
+                    </div>
+
+                    <div class="border rounded-xl p-4 bg-slate-50 space-y-4">
+                        <h3 class="font-semibold text-slate-800">Match Audit Panel (PO #PO-8842)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <div class="font-bold text-slate-700">1. Agreed PO Quote</div>
+                                <div>Unit Price: $50.00</div>
+                                <div>Qty: 100</div>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <div class="font-bold text-slate-700">2. Receiving Log</div>
+                                <div>Qty Delivered: 100</div>
+                                <div>QC Status: Passed</div>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <div class="font-bold text-slate-700">3. Vendor Invoice</div>
+                                <div class="flex items-center space-x-1">
+                                    <span>Billed Unit Price:</span>
+                                    <input type="number" x-model="invoicePrice" class="w-16 px-1 border rounded text-xs font-bold">
                                 </div>
-                                <div>
-                                    <label class="block text-xs text-slate-400 mb-1">Freight/Shipping Flat Fee ($)</label>
-                                    <input type="number" step="0.01" id="vA-freight" oninput="runEvaluationMath()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value="35.00">
-                                </div>
+                                <div>Total: $<span x-text="invoicePrice * 100"></span></div>
                             </div>
                         </div>
 
-                        <!-- Vendor B Block -->
-                        <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
-                            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                                <h3 class="text-sm font-bold text-purple-400">🏢 Vendor B: All-Trade Supply Co</h3>
-                                <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-900/50 font-mono">84% Fill</span>
+                        <!-- Discrepancy Notification Alert -->
+                        <div x-show="invoicePrice != 50" class="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-start space-x-3 text-rose-800">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
+                            <div class="space-y-1">
+                                <h4 class="font-bold text-sm">Automated Discrepancy Alert Triggered</h4>
+                                <p class="text-xs">The invoice price ($<span x-text="invoicePrice"></span>) does not match the agreed PO quote price ($50.00).</p>
+                                <button @click="notifyVendorDiscrepancy()" class="bg-rose-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-rose-700 transition">Send Discrepancy Alert to Vendor</button>
                             </div>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-xs text-slate-400 mb-1">Base Unit Quote ($)</label>
-                                    <input type="number" step="0.01" id="vB-unit" oninput="runEvaluationMath()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value="13.25">
-                                </div>
-                                <div>
-                                    <label class="block text-xs text-slate-400 mb-1">Freight/Shipping Flat Fee ($)</label>
+                        </div>
+
+                        <div x-show="invoicePrice == 50" class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 text-xs font-semibold">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Three-Way Match Verified! Approved for Payment routing.</span>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        function procurementApp() {
+            return {
+                activeTab: 'phase1',
+                
+                // Phase 1 Requisitions
+                newReq: { item: '', qty: '', targetDate: '' },
+                requisitions: [
+                    { id: 'REQ-101', item: 'Industrial Hydraulic Valves', qty: 100, targetDate: '2026-09-01', rfqIssued: false }
+                ],
+                
+                // Phase 2 Bids
+                vendorBids: [
+                    { vendor: 'Vendor A (Apex Ind)', unitPrice: 50, shipping: 200, leadTime: 3, terms: 'Net 30', status: 'Draft', selected: false, acknowledged: false },
+                    { vendor: 'Vendor B (Titan Supply)', unitPrice: 55, shipping: 100, leadTime: 2, terms: 'Net 15', status: 'Draft', selected: false, acknowledged: false }
+                ],
+
+                // Phase 3 Receiving
+                receiptLog: { qtyReceived: 100, qcPassed: true, status: 'Pending', notes: '' },
+
+                // Scorecards
+                vendorScorecards: [
+                    { name: 'Vendor A (Apex Ind)', onTime: 98, partialRate: 2, defectRate: 0.5, score: 96 },
+                    { name: 'Vendor B (Titan Supply)', onTime: 85, partialRate: 12, defectRate: 3.1, score: 81 }
+                ],
+
+                // Buffer Stock Inventory
+                inventory: [
+                    { name: 'Hydraulic Valves', stock: 12, threshold: 20 },
+                    { name: 'Steel Gaskets', stock: 150, threshold: 50 },
+                    { name: 'Pneumatic Pumps', stock: 4, threshold: 10 }
+                ],
+
+                // Matching
+                invoicePrice: 55,
+
+                // Computed Low Stock Count
+                get lowStockCount() {
+                    return this.inventory.filter(i => i.stock < i.threshold).length;
+                },
+
+                // Computed Discrepancy Count
+                get discrepancyCount() {
+                    return this.invoicePrice != 50 ? 1 : 0;
+                },
+
+                // Phase 1 Actions
+                createRequisition() {
+                    if (!this.newReq.item || !this.newReq.qty) return;
+                    this.requisitions.push({
+                        id: `REQ-${Math.floor(100 + Math.random() * 900)}`,
+                        item: this.newReq.item,
+                        qty: this.newReq.qty,
+                        targetDate: this.newReq.targetDate || '2026-09-15',
+                        rfqIssued: false
+                    });
+                    this.newReq = { item: '', qty: '', targetDate: '' };
+                },
+
+                issueRFQ(req) {
+                    req.rfqIssued = true;
+                    alert(`RFQs dispatched to target vendors. Draft POs initialized for requisition ${req.id}.`);
+                },
+
+                // Phase 2 Actions
+                finalizeWinningPO(winnerName) {
+                    this.vendorBids.forEach(b => {
+                        if (b.vendor === winnerName) {
+                            b.status = 'Finalized';
+                            b.selected = true;
+                        } else {
+                            b.status = 'Cancelled';
+                            b.selected = false;
+                        }
+                    });
+                },
+
+                dispatchAndAcknowledge(bid) {
+                    bid.acknowledged = true;
+                    alert(`PO dispatched to ${bid.vendor}. Written acknowledgement requirement logged.`);
+                },
+
+                // Phase 3 Actions
+                processReceiving() {
+                    if (this.receiptLog.qtyReceived < 100) {
+                        this.receiptLog.status = 'Partially Received';
+                        this.receiptLog.notes = `Partial log: ${this.receiptLog.qtyReceived}/100 items received. Alert sent to vendor regarding missing items.`;
+                    } else {
+                        this.receiptLog.status = 'Fully Received';
+                        this.receiptLog.notes = 'All items verified against PO & packing slip.';
+                    }
+                },
+
+                // Utility Actions
+                autoReorder(item) {
+                    item.stock += 30;
+                    alert(`Automated PO generated for ${item.name}. Stock updated.`);
+                },
+
+                notifyVendorDiscrepancy() {
+                    alert(`Automated alert email dispatched to vendor! Invoice discrepancy flagged for review.`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
