@@ -3,136 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hardware & Paint Procurement System</title>
-    <!-- Tailwind CSS for modern, clean UI -->
+    <title>Fix & Finish Store Ledger & Procurement Engine</title>
+    <!-- Modern UI layout engine -->
     <script src="https://jsdelivr.net"></script>
     <style>
-        .step-active { border-color: #2563eb; color: #2563eb; font-weight: 600; }
-        .step-done { border-color: #16a34a; color: #16a34a; }
+        .active-tab { border-color: #2563eb; color: #2563eb; background-color: #eff6ff; font-weight: 700; }
+        .terminal-scroll::-webkit-scrollbar { width: 6px; }
+        .terminal-scroll::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 3px; }
     </style>
 </head>
-<body class="bg-gray-50 font-sans text-gray-900 antialiased min-h-screen">
+<body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen">
 
-    <!-- Header Navigation -->
-    <header class="bg-blue-900 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+    <!-- Global App Shell Header -->
+    <header class="bg-slate-950 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center space-x-3">
-                <span class="text-2xl">🛠️</span>
-                <h1 class="text-xl font-bold tracking-tight">Fix & Finish Management</h1>
+                <span class="text-2xl">🎨</span>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white">Fix & Finish Supplies</h1>
+                    <p class="text-xs text-slate-400">Single-Approval Storefront Procurement Portal</p>
+                </div>
             </div>
-            <span class="bg-blue-800 text-xs px-3 py-1.5 rounded-full font-mono border border-blue-700">Internal Tracking Link Active</span>
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <span class="text-xs text-slate-400">Inventory Sync Status</span>
+                    <p id="sync-pill" class="text-xs text-emerald-400 font-mono flex items-center justify-end gap-1">
+                        <span class="h-2 w-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span> Local Storage Cache Active
+                    </p>
+                </div>
+                <button onclick="clearSystemCache()" class="text-xs bg-slate-800 hover:bg-red-950 border border-slate-700 hover:border-red-900 px-3 py-2 rounded-lg font-semibold transition text-slate-300 hover:text-red-200">
+                    Reset System
+                </button>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <!-- Quick Stats & Buffer Alerts -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-xs border border-gray-100 flex items-center space-x-4">
-                <div class="p-3 bg-red-100 text-red-600 rounded-lg text-2xl">⚠️</div>
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Buffer Stock Alert</h3>
-                    <p id="buffer-alert-text" class="text-lg font-bold text-red-600">Checking local levels...</p>
-                </div>
+        <!-- Left 2 Columns: Workflow Controls -->
+        <div class="lg:col-span-2 space-y-8">
+            
+            <!-- Step Navigation Banner -->
+            <div class="bg-slate-950 rounded-xl border border-slate-800 p-2 flex flex-wrap gap-1 shadow-md">
+                <button onclick="showPhase(1)" id="btn-p1" class="flex-1 py-3 px-4 rounded-lg text-sm text-center transition-all cursor-pointer active-tab">
+                    Phase 1: Sourcing & RFQs
+                </button>
+                <button onclick="showPhase(2)" id="btn-p2" class="flex-1 py-3 px-4 rounded-lg text-sm text-center transition-all cursor-pointer text-slate-400 hover:bg-slate-900">
+                    Phase 2: Bid Sign-Off
+                </button>
+                <button onclick="showPhase(3)" id="btn-p3" class="flex-1 py-3 px-4 rounded-lg text-sm text-center transition-all cursor-pointer text-slate-400 hover:bg-slate-900">
+                    Phase 3: Logistics Match
+                </button>
             </div>
-            <div class="bg-white p-6 rounded-xl shadow-xs border border-gray-100 flex items-center space-x-4">
-                <div class="p-3 bg-blue-100 text-blue-600 rounded-lg text-2xl">📋</div>
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Active PO Status</h3>
-                    <p id="po-status-text" class="text-lg font-bold text-gray-800">No active orders</p>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-xs border border-gray-100 flex items-center space-x-4">
-                <div class="p-3 bg-amber-100 text-amber-600 rounded-lg text-2xl">📈</div>
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Vendor Accuracy Rating</h3>
-                    <p class="text-lg font-bold text-gray-800">Vendor A: 96% | Vendor B: 88%</p>
-                </div>
-            </div>
-        </section>
 
-        <!-- Pipeline Workflow Steps Navigation -->
-        <nav class="bg-white p-4 rounded-xl shadow-xs border border-gray-100 flex flex-wrap justify-between gap-4 text-sm font-medium text-gray-500">
-            <button onclick="switchTab('phase1')" id="tab-phase1" class="flex-1 py-2 px-4 text-center border-b-2 step-active">Phase 1: Sourcing & Drafts</button>
-            <button onclick="switchTab('phase2')" id="tab-phase2" class="flex-1 py-2 px-4 text-center border-b-2 border-transparent">Phase 2: Bid Evaluation</button>
-            <button onclick="switchTab('phase3')" id="tab-phase3" class="flex-1 py-2 px-4 text-center border-b-2 border-transparent">Phase 3: Verify & Log Receipt</button>
-        </nav>
-
-        <!-- Notification Banner -->
-        <div id="sys-notification" class="hidden p-4 rounded-xl text-sm flex items-center justify-between transition-all duration-300">
-            <span id="sys-notification-msg"></span>
-            <button onclick="closeNotification()" class="text-lg font-bold hover:opacity-70">&times;</button>
-        </div>
-
-        <!-- PHASE 1: Sourcing & Pricing -->
-        <section id="panel-phase1" class="bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden">
-            <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                <div>
-                    <h2 class="text-lg font-bold text-gray-900">Phase 1: Sourcing & Pricing (Days 1–3)</h2>
-                    <p class="text-sm text-gray-500">Create internal requisitions and build draft supplier documents.</p>
-                </div>
-                <button onclick="loadMockRequisition()" class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded-md font-medium transition">Load Store Blueprint Template</button>
-            </div>
-            <div class="p-6 space-y-6">
-                <form id="requisition-form" onsubmit="handlePhase1Submit(event)" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Item Description</label>
-                            <input type="text" id="req-item" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden" placeholder="e.g. Premium Latex Matte Paint (Base A)">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Quantity Requested</label>
-                            <input type="number" id="req-qty" required min="1" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden" placeholder="e.g. 40">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Target Delivery Date</label>
-                            <input type="date" id="req-date" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden">
-                        </div>
+            <!-- PHASE 1 PANEL -->
+            <section id="panel-p1" class="bg-slate-950 rounded-xl border border-slate-800 shadow-md overflow-hidden">
+                <div class="p-6 border-b border-slate-800 bg-slate-900/50 flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Phase 1: Sourcing & Pricing (Days 1–3)</h2>
+                        <p class="text-xs text-slate-400">Initialize single-owner purchase requests and initialize split-vendor RFQs.</p>
                     </div>
-                    <div class="pt-2 flex flex-wrap gap-3">
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2.5 px-5 rounded-lg shadow-sm transition">Generate RFQs & Draft POs</button>
-                        <button type="button" onclick="exportToCustomDB()" class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium text-sm py-2.5 px-5 rounded-lg transition">Backup Draft data to Self-Built System</button>
+                    <div class="flex gap-2">
+                        <button onclick="loadTemplate('paint')" class="text-xs bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 border border-blue-900/50 px-2.5 py-1.5 rounded-md font-medium transition">
+                            + Paint Stock
+                        </button>
+                        <button onclick="loadTemplate('hardware')" class="text-xs bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 border border-purple-900/50 px-2.5 py-1.5 rounded-md font-medium transition">
+                            + Hardware Bulk
+                        </button>
                     </div>
-                </form>
-
-                <div id="rfq-output-box" class="hidden border border-dashed border-gray-200 rounded-xl p-4 bg-linear-to-b from-gray-50 to-white space-y-3">
-                    <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2"><span>📨</span> Automated Pending Draft Trackers</h3>
-                    <p class="text-xs text-gray-500">RFQ tokens broadcasted internally. Draft placeholder structures built inside system storage memory:</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono bg-white p-3 rounded-lg border border-gray-100">
-                        <div class="p-2.5 bg-gray-50 rounded border border-gray-200">
-                            <span class="font-bold text-blue-600">Draft PO #1094-A</span><br>Target: Vendor A (Paint Supplies Wholesale)<br>Status: Awaiting Quote Response
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <form onsubmit="executePhase1(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Item Group Profile</label>
+                            <input type="text" id="p1-item" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Zinc Screws, Latex Base">
                         </div>
-                        <div class="p-2.5 bg-gray-50 rounded border border-gray-200">
-                            <span class="font-bold text-purple-600">Draft PO #1094-B</span><br>Target: Vendor B (All-Trade Hardware Hub)<br>Status: Awaiting Quote Response
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Target Volume Qty</label>
+                            <input type="number" id="p1-qty" min="1" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Count units">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2.5 px-4 rounded-lg shadow-md transition cursor-pointer">
+                            Build Drafts & RFQs
+                        </button>
+                    </form>
+
+                    <!-- Active Requisition Ledger -->
+                    <div class="pt-4 border-t border-slate-800">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Active Internal Requisition Record</h3>
+                        <div id="p1-ledger-card" class="bg-slate-900 rounded-lg border border-slate-800 p-4 text-sm space-y-2 text-slate-400">
+                            No active items configured. Use forms above or sample buttons to populate fields.
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- PHASE 2: Evaluation & Commitment -->
-        <section id="panel-phase2" class="hidden bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden">
-            <div class="p-6 border-b border-gray-100 bg-gray-50">
-                <h2 class="text-lg font-bold text-gray-900">Phase 2: Evaluation & Single-Person Signoff (Days 4–5)</h2>
-                <p class="text-sm text-gray-500">Input binding offers below to evaluate terms and issue your storefront single-owner approval.</p>
-            </div>
-            <div class="p-6 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Vendor A Matrix Input -->
-                    <div class="border border-gray-200 rounded-xl p-5 space-y-4">
-                        <h3 class="text-sm font-bold text-blue-600 flex items-center justify-between">
-                            <span>🏢 Vendor A (Paint Supplies Wholesale)</span>
-                            <span class="text-xs font-normal text-gray-400">Scorecard: 4.8★</span>
-                        </h3>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="block text-xs text-gray-500 font-medium mb-1">Base Unit Price ($)</label>
-                                <input type="number" step="0.01" id="vA-price" class="w-full border border-gray-300 rounded-lg p-2 text-sm" value="12.50">
+            <!-- PHASE 2 PANEL -->
+            <section id="panel-p2" class="hidden bg-slate-950 rounded-xl border border-slate-800 shadow-md overflow-hidden">
+                <div class="p-6 border-b border-slate-800 bg-slate-900/50">
+                    <h2 class="text-base font-bold text-white">Phase 2: Evaluation & Commitment (Days 4–5)</h2>
+                    <p class="text-xs text-slate-400">Analyze vendor quotations side-by-side. Single-person sign-off dispatches the winning PO instantly.</p>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Vendor A Block -->
+                        <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <h3 class="text-sm font-bold text-blue-400">🏢 Vendor A: PaintWholesale Corp</h3>
+                                <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-900/50 font-mono">98% Fill</span>
                             </div>
-                            <div>
-                                <label class="block text-xs text-gray-500 font-medium mb-1">Total Estimated Shipping Cost ($)</label>
-                                <input type="number" step="0.01" id="vA-shipping" class="w-full border border-gray-300 rounded-lg p-2 text-sm" value="45.00">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Base Unit Quote ($)</label>
+                                    <input type="number" step="0.01" id="vA-unit" oninput="runEvaluationMath()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value="14.50">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Freight/Shipping Flat Fee ($)</label>
+                                    <input type="number" step="0.01" id="vA-freight" oninput="runEvaluationMath()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value="35.00">
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-xs text-gray-500 font-medium mb-1">Payment / Credit Terms Offered</label>
-                                <select id="vA-terms" class="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white">
+                        </div>
+
+                        <!-- Vendor B Block -->
+                        <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <h3 class="text-sm font-bold text-purple-400">🏢 Vendor B: All-Trade Supply Co</h3>
+                                <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-900/50 font-mono">84% Fill</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Base Unit Quote ($)</label>
+                                    <input type="number" step="0.01" id="vB-unit" oninput="runEvaluationMath()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value="13.25">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Freight/Shipping Flat Fee ($)</label>
