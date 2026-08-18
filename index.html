@@ -1,1238 +1,1258 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Procurify OS - Enterprise Procurement & Vendor Management</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#6366f1', // Indigo 500
-                        secondary: '#0f172a', // Slate 900
-                        surface: '#1e293b',
-                        success: '#10b981',
-                        warning: '#f59e0b',
-                        danger: '#ef4444'
-                    }
-                }
-            }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StoreOps — Inventory &amp; Purchasing</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Guarded: if the Tailwind CDN script is blocked by the network/preview sandbox,
+  // this skips quietly instead of throwing "tailwind is not defined".
+  if (typeof tailwind !== 'undefined') {
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#12202b',
+            navy: '#16324a',
+            navy2: '#1e4258',
+            brass: '#b8863d',
+            brassLt: '#e8d5b0',
+            alert: '#b3401f',
+            ok: '#2f6b4f'
+          }
         }
-    </script>
-
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- React 18 & ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Recharts -->
-    <script src="https://unpkg.com/prop-types@15.7.2/prop-types.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
-
-    <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: #f1f5f9; color: #334155; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .fade-in { animation: fadeIn 0.25s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+      }
+    };
+  } else {
+    console.warn('Tailwind CDN did not load — check your network connection. The app will still run but styling will be minimal.');
+  }
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5c5; border-radius: 6px; }
+  table { border-collapse: collapse; }
+  .mono { font-variant-numeric: tabular-nums; }
+</style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-[#f3f1ea] text-ink">
+<div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, createContext, useContext } = React;
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } = window.Recharts;
+<script type="text/babel" data-presets="react,stage-3">
+const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- SEED DATA ---
-        const seedVendors = [
-            { id: 'v1', name: 'Acme Corp', category: 'Hardware', contact: 'john@acme.com', terms: 'Net 30', score: 94 },
-            { id: 'v2', name: 'Global Tech', category: 'Software', contact: 'sarah@global.com', terms: 'Net 60', score: 88 },
-            { id: 'v3', name: 'FastLogistics', category: 'Shipping', contact: 'mike@fast.com', terms: 'Net 15', score: 96 }
-        ];
+// ---------- storage ----------
+const STORAGE_KEY = 'storeops_v1';
 
-        const seedCatalog = [
-            { id: 'c1', sku: 'HW-SRV-01', name: 'Server Racks', category: 'Hardware', stdPrice: 1200 },
-            { id: 'c2', sku: 'SW-CLD-99', name: 'Cloud Subscriptions', category: 'Software', stdPrice: 5000 },
-            { id: 'c3', sku: 'OF-CHR-12', name: 'Office Chairs', category: 'Furniture', stdPrice: 200 },
-            { id: 'c4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', category: 'IT Equip', stdPrice: 950 },
-            { id: 'c5', sku: 'HW-CBL-09', name: 'Cat6 Ethernet Cables (100pk)', category: 'Hardware', stdPrice: 120 },
-            { id: 'c6', sku: 'HW-PDU-04', name: 'Smart Power Distribution Unit', category: 'Hardware', stdPrice: 650 }
-        ];
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { console.error('load failed', e); }
+  return {
+    items: [],
+    vendors: [],
+    salespeople: [],
+    sales: [],
+    pos: [],
+    rfqs: [],
+    orderQueue: [],
+    reconciliations: [],
+    counters: { po: 1000, rfq: 1000 }
+  };
+}
 
-        const seedInventory = [
-            { id: 'i1', sku: 'HW-SRV-01', name: 'Server Racks', stock: 3, minStock: 5, warehouse: 'WH-East' },
-            { id: 'i2', sku: 'SW-CLD-99', name: 'Cloud Subscriptions', stock: 50, minStock: 10, warehouse: 'Cloud' },
-            { id: 'i3', sku: 'OF-CHR-12', name: 'Office Chairs', stock: 8, minStock: 12, warehouse: 'WH-West' },
-            { id: 'i4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', stock: 2, minStock: 10, warehouse: 'WH-Central' },
-            { id: 'i5', sku: 'HW-CBL-09', name: 'Cat6 Ethernet Cables (100pk)', stock: 4, minStock: 15, warehouse: 'WH-East' }
-        ];
+// ---------- helpers ----------
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmt = (n) => '$' + (Number(n) || 0).toFixed(2);
+const num = (v) => (v === '' || v === null || isNaN(v)) ? 0 : Number(v);
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const lowStock = (it) => num(it.qty) <= num(it.reorderPoint);
 
-        const seedPOs = [
-            {
-                id: 'PO-1001',
-                vendorId: 'v1',
-                vendorName: 'Acme Corp',
-                date: '2026-06-01',
-                status: 'PENDING APPROVAL',
-                paymentStatus: 'UNPAID',
-                paidAmount: 0,
-                items: [
-                    { name: 'Server Racks', qty: 3, receivedQty: 0, price: 1200 },
-                    { name: 'Smart Power Distribution Unit', qty: 2, receivedQty: 0, price: 650 },
-                    { name: 'Cat6 Ethernet Cables (100pk)', qty: 10, receivedQty: 0, price: 120 },
-                    { name: 'Office Chairs', qty: 4, receivedQty: 0, price: 200 }
-                ]
-            },
-            {
-                id: 'PO-1002',
-                vendorId: 'v2',
-                vendorName: 'Global Tech',
-                date: '2026-06-10',
-                status: 'FULFILLED',
-                paymentStatus: 'PAID',
-                paidAmount: 5800,
-                rated: true,
-                items: [
-                    { name: 'Cloud Subscriptions', qty: 1, receivedQty: 1, price: 5000 },
-                    { name: 'Laptops (ThinkPad)', qty: 2, receivedQty: 2, price: 400 }
-                ]
-            },
-            {
-                id: 'PO-1003',
-                vendorId: 'v3',
-                vendorName: 'FastLogistics',
-                date: '2026-06-12',
-                status: 'PARTIAL RECEIPT',
-                paymentStatus: 'PARTIALLY PAID',
-                paidAmount: 1000,
-                items: [
-                    { name: 'Server Racks', qty: 2, receivedQty: 1, price: 1200 },
-                    { name: 'Office Chairs', qty: 10, receivedQty: 4, price: 200 },
-                    { name: 'Cat6 Ethernet Cables (100pk)', qty: 15, receivedQty: 5, price: 120 },
-                    { name: 'Smart Power Distribution Unit', qty: 1, receivedQty: 0, price: 650 }
-                ]
-            }
-        ];
+function vendorName(db, id) {
+  const v = db.vendors.find(v => v.id === id);
+  return v ? v.name : '— none —';
+}
+function itemById(db, id) { return db.items.find(i => i.id === id); }
 
-        const seedBids = [
-            { id: 'b1', itemName: 'Laptops (ThinkPad)', vendorId: 'v1', vendorName: 'Acme Corp', amount: 950, status: 'PENDING' },
-            { id: 'b2', itemName: 'Laptops (ThinkPad)', vendorId: 'v2', vendorName: 'Global Tech', amount: 890, status: 'PENDING' },
-            { id: 'b3', itemName: 'Office Chairs', vendorId: 'v1', vendorName: 'Acme Corp', amount: 200, status: 'PENDING' }
-        ];
+function poTotals(po) {
+  const ordered = po.lines.reduce((s, l) => s + num(l.qtyOrdered) * num(l.cost), 0);
+  const received = po.lines.reduce((s, l) => s + num(l.qtyReceived) * num(l.cost), 0);
+  const paid = (po.payments || []).reduce((s, p) => s + num(p.amount), 0);
+  const balance = received - paid;
+  return { ordered, received, paid, balance };
+}
 
-        // --- CUSTOM HOOKS ---
-        function useLocalStorage(key, initialValue) {
-            const [storedValue, setStoredValue] = useState(() => {
-                try {
-                    const item = window.localStorage.getItem(key);
-                    return item ? JSON.parse(item) : initialValue;
-                } catch (error) { return initialValue; }
-            });
-            const setValue = (value) => {
-                try {
-                    const valueToStore = value instanceof Function ? value(storedValue) : value;
-                    setStoredValue(valueToStore);
-                    window.localStorage.setItem(key, JSON.stringify(valueToStore));
-                } catch (error) { console.error(error); }
-            };
-            return [storedValue, setValue];
-        }
+function statusBadge(status) {
+  const map = {
+    draft: 'bg-gray-200 text-gray-700',
+    bidding: 'bg-purple-100 text-purple-700',
+    sent: 'bg-blue-100 text-blue-700',
+    partial: 'bg-amber-100 text-amber-800',
+    received: 'bg-emerald-100 text-emerald-700',
+    closed: 'bg-gray-300 text-gray-600',
+    open: 'bg-blue-100 text-blue-700',
+    awarded: 'bg-emerald-100 text-emerald-700'
+  };
+  return <span className={"px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide " + (map[status]||'bg-gray-200 text-gray-700')}>{status}</span>;
+}
 
-        const generateId = (prefix) => `${prefix}-${Math.floor(Math.random() * 10000)}`;
-        const exportCSV = (data, filename) => {
-            if (!data || !data.length) return;
-            const keys = Object.keys(data[0]);
-            const csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n" + data.map(row => keys.map(k => `"${row[k]}"`).join(",")).join("\n");
-            const link = document.createElement("a");
-            link.setAttribute("href", encodeURI(csvContent));
-            link.setAttribute("download", filename);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
+// ---------- small UI atoms ----------
+function Field({ label, children, className }) {
+  return (
+    <label className={"flex flex-col gap-1 text-xs font-semibold text-navy/70 " + (className||'')}>
+      {label}
+      {children}
+    </label>
+  );
+}
+function TInput(props) {
+  return <input {...props} className={"border border-navy/20 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brass " + (props.className||'')} />;
+}
+function TSelect(props) {
+  return <select {...props} className={"border border-navy/20 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brass " + (props.className||'')}>{props.children}</select>;
+}
+function Btn({ children, onClick, kind, disabled, className }) {
+  const kinds = {
+    primary: 'bg-navy text-white hover:bg-navy2',
+    brass: 'bg-brass text-white hover:bg-[#a3752f]',
+    ghost: 'bg-white border border-navy/25 text-navy hover:bg-navy/5',
+    danger: 'bg-alert text-white hover:bg-[#932f16]',
+    ok: 'bg-ok text-white hover:bg-[#255a41]'
+  };
+  return (
+    <button disabled={disabled} onClick={onClick}
+      className={"px-3 py-1.5 rounded text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed " + (kinds[kind]||kinds.ghost) + " " + (className||'')}>
+      {children}
+    </button>
+  );
+}
+function Card({ title, right, children, className }) {
+  return (
+    <div className={"bg-white rounded-lg border border-navy/10 shadow-sm " + (className||'')}>
+      {(title || right) && (
+        <div className="flex items-center justify-between px-4 py-3 border-b border-navy/10">
+          <h3 className="font-bold text-navy">{title}</h3>
+          <div>{right}</div>
+        </div>
+      )}
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+function Stat({ label, value, tone }) {
+  const tones = { alert: 'text-alert', ok: 'text-ok', navy: 'text-navy', brass: 'text-brass' };
+  return (
+    <div className="bg-white rounded-lg border border-navy/10 shadow-sm p-4 flex-1 min-w-[140px]">
+      <div className="text-xs uppercase tracking-wide font-semibold text-navy/50">{label}</div>
+      <div className={"text-2xl font-bold mt-1 " + (tones[tone]||'text-navy')}>{value}</div>
+    </div>
+  );
+}
 
-        const calculatePOTotal = (items) => items.reduce((sum, i) => sum + (i.qty * i.price), 0);
+// ================= APP =================
+function App() {
+  const [db, setDb] = useState(loadDB);
+  const [tab, setTab] = useState('dashboard');
+  const fileRef = useRef(null);
 
-        // --- TOAST CONTEXT ---
-        const ToastContext = createContext();
-        const ToastProvider = ({ children }) => {
-            const [toasts, setToasts] = useState([]);
-            const addToast = (message, type = 'success') => {
-                const id = Date.now();
-                setToasts(prev => [...prev, { id, message, type }]);
-                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
-            };
-            return (
-                <ToastContext.Provider value={{ addToast }}>
-                    {children}
-                    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2">
-                        {toasts.map(t => (
-                            <div key={t.id} className={`fade-in px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium flex items-center gap-3 ${t.type === 'success' ? 'bg-emerald-600' : t.type === 'warning' ? 'bg-amber-600' : 'bg-indigo-600'}`}>
-                                <i className={`fa-solid ${t.type === 'success' ? 'fa-circle-check text-emerald-200' : t.type === 'warning' ? 'fa-triangle-exclamation text-amber-200' : 'fa-circle-info text-indigo-200'}`}></i>
-                                <span>{t.message}</span>
-                            </div>
-                        ))}
-                    </div>
-                </ToastContext.Provider>
-            );
-        };
-        const useToast = () => useContext(ToastContext);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  }, [db]);
 
-        // --- UI COMPONENTS ---
-        const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-xs z-50 flex justify-center items-center fade-in">
-                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden border border-slate-100 mx-4`}>
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="font-bold text-slate-800 text-base">{title}</h3>
-                            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"><i className="fa-solid fa-xmark"></i></button>
-                        </div>
-                        <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
-                    </div>
-                </div>
-            );
-        };
+  const update = (fn) => setDb(prev => { const next = JSON.parse(JSON.stringify(prev)); fn(next); return next; });
 
-        const StatusBadge = ({ status }) => {
-            const styles = {
-                'PENDING APPROVAL': 'bg-amber-50 text-amber-700 border-amber-200',
-                'ISSUED': 'bg-blue-50 text-blue-700 border-blue-200',
-                'PARTIAL RECEIPT': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                'FULFILLED': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                'CLOSED / CANCELLED': 'bg-slate-100 text-slate-600 border-slate-300',
-                'PENDING': 'bg-slate-100 text-slate-700 border-slate-200',
-                'AWARDED': 'bg-violet-50 text-violet-700 border-violet-200',
-                'PAID': 'bg-teal-50 text-teal-700 border-teal-200',
-                'PARTIALLY PAID': 'bg-cyan-50 text-cyan-700 border-cyan-200',
-                'UNPAID': 'bg-rose-50 text-rose-700 border-rose-200'
-            };
-            return (
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full border inline-flex items-center gap-1.5 ${styles[status] || 'bg-slate-100 text-slate-700'}`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                    {status}
-                </span>
-            );
-        };
+  const lowItems = useMemo(() => db.items.filter(lowStock), [db.items]);
+  const openPOs = useMemo(() => db.pos.filter(p => p.status !== 'closed'), [db.pos]);
+  const apOutstanding = useMemo(() => db.pos.reduce((s, p) => s + Math.max(0, poTotals(p).balance), 0), [db.pos]);
 
-        // --- VIEWS ---
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'storeops-backup-' + todayISO() + '.json';
+    a.click(); URL.revokeObjectURL(url);
+  }
+  function importJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed.items || !parsed.vendors) throw new Error('not a valid backup');
+        setDb(parsed);
+        alert('Backup restored.');
+      } catch (err) { alert('Could not read that file: ' + err.message); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
 
-        const DashboardView = ({ pos, vendors, inventory }) => {
-            const totalSpend = pos.reduce((sum, po) => sum + calculatePOTotal(po.items), 0);
-            const pendingApprovalsCount = pos.filter(p => p.status === 'PENDING APPROVAL').length;
-            const lowStockCount = inventory.filter(i => i.stock <= i.minStock).length;
-            const BUDGET_QUARTER = 250000;
-            const budgetUsedPerc = Math.min((totalSpend / BUDGET_QUARTER) * 100, 100).toFixed(1);
-            
-            const spendByVendorMap = pos.reduce((acc, po) => {
-                acc[po.vendorName] = (acc[po.vendorName] || 0) + calculatePOTotal(po.items);
-                return acc;
-            }, {});
-            const barData = Object.keys(spendByVendorMap).map(k => ({ name: k, Spend: spendByVendorMap[k] }));
+  const NAV = [
+    ['dashboard', 'Dashboard'],
+    ['inventory', 'Inventory'],
+    ['reconcile', 'Reconcile'],
+    ['sales', 'Sales'],
+    ['purchasing', 'Purchasing'],
+    ['rfq', 'Bids / RFQ'],
+    ['vendors', 'Vendors'],
+    ['payments', 'Payments'],
+  ];
 
-            const timelineData = [...pos].sort((a,b) => new Date(a.date) - new Date(b.date)).reduce((acc, po) => {
-                const total = calculatePOTotal(po.items);
-                const existing = acc.find(x => x.date === po.date);
-                if(existing) existing.amount += total;
-                else acc.push({ date: po.date, amount: total });
-                return acc;
-            }, []);
+  return (
+    <div className="min-h-screen flex">
+      <aside className="w-56 shrink-0 bg-navy text-white/90 flex flex-col">
+        <div className="px-4 py-5 border-b border-white/10">
+          <div className="text-lg font-bold text-white">StoreOps</div>
+          <div className="text-[11px] text-white/50">inventory &amp; purchasing</div>
+        </div>
+        <nav className="flex-1 py-3">
+          {NAV.map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={"w-full text-left px-4 py-2 text-sm font-medium flex items-center justify-between " + (tab===id ? 'bg-white/10 border-l-4 border-brass text-white' : 'border-l-4 border-transparent text-white/70 hover:bg-white/5')}>
+              <span>{label}</span>
+              {id === 'inventory' && lowItems.length > 0 && <span className="bg-alert text-white text-[10px] px-1.5 py-0.5 rounded-full">{lowItems.length}</span>}
+              {id === 'purchasing' && openPOs.length > 0 && <span className="bg-brass text-white text-[10px] px-1.5 py-0.5 rounded-full">{openPOs.length}</span>}
+              {id === 'sales' && db.orderQueue.length > 0 === false ? null : null}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-white/10 space-y-1.5">
+          <button onClick={exportJSON} className="w-full text-xs px-2 py-1.5 rounded bg-white/10 hover:bg-white/20">⬇ Export backup</button>
+          <button onClick={() => fileRef.current.click()} className="w-full text-xs px-2 py-1.5 rounded bg-white/10 hover:bg-white/20">⬆ Import backup</button>
+          <input type="file" ref={fileRef} accept="application/json" className="hidden" onChange={importJSON} />
+          <div className="text-[10px] text-white/40 pt-1">Data stays in this browser only.</div>
+        </div>
+      </aside>
 
-            return (
-                <div className="fade-in space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Executive Procurement Dashboard</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Real-time spend intelligence, multi-item purchase tracking, and budget controls.</p>
-                        </div>
-                        {(pendingApprovalsCount > 0 || lowStockCount > 0) && (
-                            <div className="flex gap-2">
-                                {pendingApprovalsCount > 0 && (
-                                    <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-2">
-                                        <i className="fa-solid fa-triangle-exclamation"></i> {pendingApprovalsCount} POs Pending Approval
-                                    </span>
-                                )}
-                                {lowStockCount > 0 && (
-                                    <span className="bg-rose-100 text-rose-800 text-xs font-semibold px-3 py-1.5 rounded-xl border border-rose-200 flex items-center gap-2">
-                                        <i className="fa-solid fa-box-archive"></i> {lowStockCount} Low Stock Alerts
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total PO Spend</span>
-                                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i className="fa-solid fa-dollar-sign"></i></div>
-                            </div>
-                            <p className="text-2xl font-bold text-slate-900">${totalSpend.toLocaleString()}</p>
-                        </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Budget Utilization</span>
-                                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i className="fa-solid fa-chart-pie"></i></div>
-                            </div>
-                            <p className="text-2xl font-bold text-slate-900">{budgetUsedPerc}%</p>
-                            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-                                <div className={`h-1.5 rounded-full ${budgetUsedPerc > 90 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{width: `${budgetUsedPerc}%`}}></div>
-                            </div>
-                        </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Vendors</span>
-                                <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center"><i className="fa-solid fa-users"></i></div>
-                            </div>
-                            <p className="text-2xl font-bold text-slate-900">{vendors.length}</p>
-                        </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventory SKUs</span>
-                                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i className="fa-solid fa-boxes-stacked"></i></div>
-                            </div>
-                            <p className="text-2xl font-bold text-slate-900">{inventory.length}</p>
-                        </div>
-                    </div>
+      <main className="flex-1 p-6 overflow-x-auto">
+        {tab === 'dashboard' && <Dashboard db={db} lowItems={lowItems} openPOs={openPOs} apOutstanding={apOutstanding} goto={setTab} />}
+        {tab === 'inventory' && <Inventory db={db} update={update} />}
+        {tab === 'reconcile' && <Reconcile db={db} update={update} />}
+        {tab === 'sales' && <Sales db={db} update={update} />}
+        {tab === 'purchasing' && <Purchasing db={db} update={update} />}
+        {tab === 'rfq' && <RFQ db={db} update={update} />}
+        {tab === 'vendors' && <Vendors db={db} update={update} />}
+        {tab === 'payments' && <Payments db={db} update={update} />}
+      </main>
+    </div>
+  );
+}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-                            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-arrow-trend-up text-indigo-500"></i> Spend Timeline</h3>
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={timelineData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
-                                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{fontSize: 12, fill: '#64748b'}} />
-                                        <Tooltip formatter={(v) => [`$${v.toLocaleString()}`, 'Spend']} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                                        <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={3} dot={{r: 4, fill: '#6366f1'}} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-                            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-chart-column text-emerald-500"></i> Spend by Vendor</h3>
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={barData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
-                                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} tick={{fontSize: 12, fill: '#64748b'}} />
-                                        <Tooltip cursor={{fill: '#f8fafc'}} formatter={(v) => [`$${v.toLocaleString()}`, 'Spend']} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                                        <Bar dataKey="Spend" fill="#10b981" radius={[6, 6, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+// ---------------- DASHBOARD ----------------
+function Dashboard({ db, lowItems, openPOs, apOutstanding, goto }) {
+  const salesTotal = db.sales.reduce((s, sale) => s + sale.total, 0);
+  const salesToday = db.sales.filter(s => s.date === todayISO()).reduce((s, sale) => s + sale.total, 0);
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
+      <div className="flex flex-wrap gap-4">
+        <Stat label="Items tracked" value={db.items.length} />
+        <Stat label="Low / reorder flagged" value={lowItems.length} tone={lowItems.length ? 'alert' : 'ok'} />
+        <Stat label="Open purchase orders" value={openPOs.length} tone="brass" />
+        <Stat label="AP outstanding" value={fmt(apOutstanding)} tone={apOutstanding ? 'alert' : 'ok'} />
+        <Stat label="Sales today" value={fmt(salesToday)} tone="ok" />
+        <Stat label="Sales all-time" value={fmt(salesTotal)} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card title="Items needing reorder" right={<Btn kind="ghost" onClick={()=>goto('inventory')}>Open inventory →</Btn>}>
+          {lowItems.length === 0 ? <p className="text-sm text-navy/50">Nothing flagged. Stock looks healthy.</p> : (
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-navy/50 text-xs uppercase"><th className="py-1">Item</th><th>On hand</th><th>Reorder pt</th><th>Vendor</th></tr></thead>
+              <tbody>
+                {lowItems.slice(0,10).map(it => (
+                  <tr key={it.id} className="border-t border-navy/5">
+                    <td className="py-1.5 font-medium">{it.name}</td>
+                    <td className="text-alert font-bold">{it.qty}</td>
+                    <td>{it.reorderPoint}</td>
+                    <td className="text-navy/60">{vendorName(db, it.currentVendorId)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {lowItems.length > 10 && <p className="text-xs text-navy/40 mt-2">+{lowItems.length-10} more…</p>}
+        </Card>
+        <Card title="Open purchase orders" right={<Btn kind="ghost" onClick={()=>goto('purchasing')}>Open purchasing →</Btn>}>
+          {openPOs.length === 0 ? <p className="text-sm text-navy/50">No open purchase orders.</p> : (
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-navy/50 text-xs uppercase"><th className="py-1">PO#</th><th>Vendor</th><th>Status</th><th>Balance</th></tr></thead>
+              <tbody>
+                {openPOs.map(po => {
+                  const t = poTotals(po);
+                  return (
+                    <tr key={po.id} className="border-t border-navy/5">
+                      <td className="py-1.5 font-medium">{po.number}</td>
+                      <td>{vendorName(db, po.vendorId)}</td>
+                      <td>{statusBadge(po.status)}</td>
+                      <td className="mono">{fmt(t.balance)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
 
-        const InventoryView = ({ inventory, setInventory, setPOs, pos, vendors }) => {
-            const { addToast } = useToast();
-            const [searchTerm, setSearchTerm] = useState("");
+// ---------------- INVENTORY ----------------
+const emptyItem = () => ({
+  id: uid(), name: '', brand: '', category: '', upc: '', bulkUpc: '',
+  qty: 0, reorderPoint: 0, reorderQty: 0, cost: 0, sellPrice: 0,
+  currentVendorId: '', favoriteVendorId: ''
+});
 
-            const handleReorder = (item) => {
-                const deficit = (item.minStock * 2) - item.stock;
-                const qty = deficit > 0 ? deficit : 10;
-                const defaultVendor = vendors[0];
-                const newPO = {
-                    id: generateId('PO'),
-                    vendorId: defaultVendor.id,
-                    vendorName: defaultVendor.name,
-                    date: new Date().toISOString().split('T')[0],
-                    status: 'PENDING APPROVAL',
-                    paymentStatus: 'UNPAID',
-                    paidAmount: 0,
-                    items: [
-                        { name: item.name, qty: qty, receivedQty: 0, price: 150 }
-                    ]
-                };
-                setPOs([newPO, ...pos]);
-                addToast(`Auto-generated reorder PO for ${item.name}!`, 'success');
-            };
+function Inventory({ db, update }) {
+  const [editing, setEditing] = useState(null); // item object being edited, or null
+  const [query, setQuery] = useState('');
+  const [catFilter, setCatFilter] = useState('');
+  const [onlyLow, setOnlyLow] = useState(false);
+  const [selected, setSelected] = useState({});
 
-            const filtered = inventory.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()) || i.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+  const categories = useMemo(() => [...new Set(db.items.map(i => i.category).filter(Boolean))].sort(), [db.items]);
 
-            return (
-                <div className="fade-in space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Inventory Stock Levels & Reorders</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Track warehouse stock thresholds and trigger automated replenishment orders.</p>
-                        </div>
-                        <button onClick={() => exportCSV(inventory, 'inventory_stock.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
-                            <i className="fa-solid fa-download text-slate-400"></i> Export CSV
-                        </button>
-                    </div>
+  const filtered = useMemo(() => db.items.filter(it => {
+    if (onlyLow && !lowStock(it)) return false;
+    if (catFilter && it.category !== catFilter) return false;
+    if (query) {
+      const q = query.toLowerCase();
+      if (!(it.name.toLowerCase().includes(q) || it.upc.includes(q) || it.bulkUpc.includes(q) || it.brand.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  }), [db.items, query, catFilter, onlyLow]);
 
-                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                            <div className="relative w-80">
-                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                                <input type="text" placeholder="Search SKU or item..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                            </div>
-                            <span className="text-xs text-slate-500 font-medium">Showing {filtered.length} items</span>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-600">
-                                <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
-                                    <tr>
-                                        <th className="p-4">SKU</th>
-                                        <th className="p-4">Item Name</th>
-                                        <th className="p-4">Warehouse</th>
-                                        <th className="p-4">Current Stock</th>
-                                        <th className="p-4">Min Threshold</th>
-                                        <th className="p-4">Status</th>
-                                        <th className="p-4 text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.map(i => {
-                                        const isLow = i.stock <= i.minStock;
-                                        return (
-                                            <tr key={i.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                                <td className="p-4 font-mono text-xs text-slate-500">{i.sku}</td>
-                                                <td className="p-4 font-bold text-slate-900">{i.name}</td>
-                                                <td className="p-4 text-slate-600">{i.warehouse}</td>
-                                                <td className="p-4 font-semibold text-slate-800">{i.stock} units</td>
-                                                <td className="p-4 text-slate-500">{i.minStock} units</td>
-                                                <td className="p-4">
-                                                    {isLow ? (
-                                                        <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1.5">
-                                                            <i className="fa-solid fa-triangle-exclamation"></i> Low Stock
-                                                        </span>
-                                                    ) : (
-                                                        <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5">
-                                                            <i className="fa-solid fa-check"></i> Healthy
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4 text-right">
-                                                    <button onClick={() => handleReorder(i)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition shadow-xs">
-                                                        <i className="fa-solid fa-cart-plus mr-1"></i> Quick Reorder
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+  function saveItem(item) {
+    update(d => {
+      const idx = d.items.findIndex(i => i.id === item.id);
+      if (idx >= 0) d.items[idx] = item; else d.items.push(item);
+    });
+    setEditing(null);
+  }
+  function deleteItem(id) {
+    if (!confirm('Delete this item permanently?')) return;
+    update(d => { d.items = d.items.filter(i => i.id !== id); });
+  }
+  function toggleSel(id) { setSelected(s => ({ ...s, [id]: !s[id] })); }
+  const selectedIds = Object.keys(selected).filter(id => selected[id]);
 
-        const POsView = ({ pos, setPOs, vendors, catalog, setVendors, inventory, setInventory }) => {
-            const { addToast } = useToast();
-            const [searchTerm, setSearchTerm] = useState("");
-            const [statusFilter, setStatusFilter] = useState("ALL");
-            const [createModal, setCreateModal] = useState(false);
-            const [receivePO, setReceivePO] = useState(null); 
-            const [ratePO, setRatePO] = useState(null); 
-            const [payPO, setPayPO] = useState(null); // Partial Payment Modal state
-            const [paymentAmountInput, setPaymentAmountInput] = useState("");
-            const [viewItemsPO, setViewItemsPO] = useState(null); // Modal to view/inspect all items in PO
+  function addToQueue() {
+    update(d => { d.orderQueue = [...new Set([...d.orderQueue, ...selectedIds])]; });
+    setSelected({});
+    alert(selectedIds.length + ' item(s) added to the order queue. Build a PO from Purchasing.');
+  }
 
-            // State for drafting new PO with multiple items
-            const [draftItems, setDraftItems] = useState([
-                { name: '', qty: 1, price: 0 }
-            ]);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-2xl font-bold text-navy">Inventory ({db.items.length})</h1>
+        <div className="flex gap-2">
+          {selectedIds.length > 0 && <Btn kind="brass" onClick={addToQueue}>Queue {selectedIds.length} for order</Btn>}
+          <Btn kind="primary" onClick={() => setEditing(emptyItem())}>+ Add item</Btn>
+        </div>
+      </div>
 
-            const addDraftItemRow = () => {
-                setDraftItems([...draftItems, { name: '', qty: 1, price: 0 }]);
-            };
+      <div className="flex flex-wrap gap-2 items-center">
+        <TInput placeholder="Search name / brand / UPC" value={query} onChange={e=>setQuery(e.target.value)} className="w-64" />
+        <TSelect value={catFilter} onChange={e=>setCatFilter(e.target.value)}>
+          <option value="">All categories</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </TSelect>
+        <label className="flex items-center gap-1.5 text-sm font-medium text-navy/70">
+          <input type="checkbox" checked={onlyLow} onChange={e=>setOnlyLow(e.target.checked)} /> Low stock only
+        </label>
+        {db.orderQueue.length > 0 && <span className="text-xs bg-brassLt text-navy px-2 py-1 rounded">{db.orderQueue.length} item(s) already queued for order</span>}
+      </div>
 
-            const removeDraftItemRow = (index) => {
-                if(draftItems.length === 1) return;
-                setDraftItems(draftItems.filter((_, i) => i !== index));
-            };
+      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
+            <tr>
+              <th className="p-2"></th>
+              <th className="p-2 text-left">Name</th>
+              <th className="p-2 text-left">Brand</th>
+              <th className="p-2 text-left">Category</th>
+              <th className="p-2 text-left">UPC</th>
+              <th className="p-2 text-right">On hand</th>
+              <th className="p-2 text-right">Reorder pt</th>
+              <th className="p-2 text-right">Cost</th>
+              <th className="p-2 text-right">Sell</th>
+              <th className="p-2 text-left">Vendor</th>
+              <th className="p-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(it => (
+              <tr key={it.id} className={"border-t border-navy/5 " + (lowStock(it) ? 'bg-alert/5' : '')}>
+                <td className="p-2"><input type="checkbox" checked={!!selected[it.id]} onChange={()=>toggleSel(it.id)} /></td>
+                <td className="p-2 font-medium">{it.name} {lowStock(it) && <span className="ml-1 text-[10px] bg-alert text-white px-1.5 py-0.5 rounded-full align-middle">LOW</span>}</td>
+                <td className="p-2 text-navy/60">{it.brand}</td>
+                <td className="p-2 text-navy/60">{it.category}</td>
+                <td className="p-2 text-navy/60 mono">{it.upc}</td>
+                <td className={"p-2 text-right mono font-semibold " + (lowStock(it) ? 'text-alert' : '')}>{it.qty}</td>
+                <td className="p-2 text-right mono text-navy/60">{it.reorderPoint}</td>
+                <td className="p-2 text-right mono">{fmt(it.cost)}</td>
+                <td className="p-2 text-right mono">{fmt(it.sellPrice)}</td>
+                <td className="p-2 text-navy/60">{vendorName(db, it.currentVendorId)}</td>
+                <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setEditing(it)}>Edit</Btn></td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan="11" className="p-6 text-center text-navy/40">No items match.</td></tr>}
+          </tbody>
+        </table>
+      </div>
 
-            const handleCreatePO = (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                const vendorId = fd.get('vendorId');
-                const vendor = vendors.find(v => v.id === vendorId);
-                
-                const formattedItems = draftItems.map((item, idx) => ({
-                    name: fd.get(`itemName_${idx}`),
-                    qty: parseInt(fd.get(`itemQty_${idx}`)),
-                    receivedQty: 0,
-                    price: parseFloat(fd.get(`itemPrice_${idx}`))
-                }));
+      {editing && <ItemEditor db={db} item={editing} onSave={saveItem} onCancel={()=>setEditing(null)} onDelete={deleteItem} />}
+    </div>
+  );
+}
 
-                const total = calculatePOTotal(formattedItems);
-                const initialStatus = total > 5000 ? 'PENDING APPROVAL' : 'ISSUED';
+function ItemEditor({ db, item, onSave, onCancel, onDelete }) {
+  const [f, setF] = useState(item);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const setN = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const isNew = !db.items.find(i => i.id === item.id);
 
-                const newPO = {
-                    id: generateId('PO'),
-                    vendorId: vendor.id, 
-                    vendorName: vendor.name,
-                    date: new Date().toISOString().split('T')[0],
-                    status: initialStatus, 
-                    paymentStatus: 'UNPAID',
-                    paidAmount: 0,
-                    items: formattedItems
-                };
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
+        <h3 className="font-bold text-lg text-navy mb-3">{isNew ? 'Add item' : 'Edit item'}</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Name"><TInput value={f.name} onChange={set('name')} /></Field>
+          <Field label="Brand"><TInput value={f.brand} onChange={set('brand')} /></Field>
+          <Field label="Category"><TInput value={f.category} onChange={set('category')} list="cat-list" />
+            <datalist id="cat-list">{[...new Set(db.items.map(i=>i.category).filter(Boolean))].map(c=><option key={c} value={c} />)}</datalist>
+          </Field>
+          <Field label="UPC"><TInput value={f.upc} onChange={set('upc')} /></Field>
+          <Field label="Bulk order UPC"><TInput value={f.bulkUpc} onChange={set('bulkUpc')} /></Field>
+          <Field label="On hand (qty)"><TInput type="number" value={f.qty} onChange={setN('qty')} /></Field>
+          <Field label="Reorder point"><TInput type="number" value={f.reorderPoint} onChange={setN('reorderPoint')} /></Field>
+          <Field label="Reorder qty (default order size)"><TInput type="number" value={f.reorderQty} onChange={setN('reorderQty')} /></Field>
+          <Field label="Cost (per unit)"><TInput type="number" step="0.01" value={f.cost} onChange={setN('cost')} /></Field>
+          <Field label="Sell price"><TInput type="number" step="0.01" value={f.sellPrice} onChange={setN('sellPrice')} /></Field>
+          <Field label="Current vendor">
+            <TSelect value={f.currentVendorId} onChange={set('currentVendorId')}>
+              <option value="">— none —</option>
+              {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </TSelect>
+          </Field>
+          <Field label="Favorite vendor">
+            <TSelect value={f.favoriteVendorId} onChange={set('favoriteVendorId')}>
+              <option value="">— none —</option>
+              {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </TSelect>
+          </Field>
+        </div>
+        <div className="flex justify-between items-center mt-5">
+          <div>{!isNew && <Btn kind="danger" onClick={()=>{onDelete(f.id); onCancel();}}>Delete item</Btn>}</div>
+          <div className="flex gap-2">
+            <Btn kind="ghost" onClick={onCancel}>Cancel</Btn>
+            <Btn kind="primary" onClick={()=>onSave({...f, qty:num(f.qty), reorderPoint:num(f.reorderPoint), reorderQty:num(f.reorderQty), cost:num(f.cost), sellPrice:num(f.sellPrice)})} disabled={!f.name}>Save item</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-                setPOs([newPO, ...pos]);
-                setCreateModal(false);
-                setDraftItems([{ name: '', qty: 1, price: 0 }]);
-                addToast(`PO ${newPO.id} successfully created! ${initialStatus === 'PENDING APPROVAL' ? '(Requires Approval)' : ''}`, 'success');
-            };
+// ---------------- RECONCILE ----------------
+function Reconcile({ db, update }) {
+  const [counts, setCounts] = useState({});
+  const touched = Object.keys(counts).filter(id => counts[id] !== '' && counts[id] !== undefined);
 
-            const handleApprovePO = (poId) => {
-                setPOs(pos.map(p => p.id === poId ? { ...p, status: 'ISSUED' } : p));
-                addToast(`PO ${poId} approved and issued to vendor!`, 'success');
-            };
+  function applyCounts() {
+    if (touched.length === 0) return alert('Enter at least one counted quantity first.');
+    const changes = [];
+    update(d => {
+      touched.forEach(id => {
+        const it = d.items.find(i => i.id === id);
+        if (!it) return;
+        const newQty = num(counts[id]);
+        if (newQty !== num(it.qty)) changes.push({ itemId: id, name: it.name, from: it.qty, to: newQty });
+        it.qty = newQty;
+      });
+      d.reconciliations.unshift({ id: uid(), date: todayISO(), changes });
+    });
+    setCounts({});
+    alert('Applied ' + changes.length + ' count change(s).');
+  }
 
-            const handleReceiveSubmit = (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-navy">Reconcile storeroom</h1>
+        <Btn kind="primary" onClick={applyCounts} disabled={touched.length===0}>Apply {touched.length || ''} count(s)</Btn>
+      </div>
+      <p className="text-sm text-navy/60">Walk the storeroom and enter what you actually counted. Only rows you fill in will be updated — everything else stays as-is.</p>
+      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
+            <tr>
+              <th className="p-2 text-left">Item</th>
+              <th className="p-2 text-left">UPC</th>
+              <th className="p-2 text-right">System qty</th>
+              <th className="p-2 text-right">Counted qty</th>
+              <th className="p-2 text-right">Variance</th>
+              <th className="p-2 text-right">Reorder pt</th>
+              <th className="p-2 text-left">Flag</th>
+            </tr>
+          </thead>
+          <tbody>
+            {db.items.map(it => {
+              const counted = counts[it.id];
+              const variance = counted === undefined || counted === '' ? null : num(counted) - num(it.qty);
+              const effectiveQty = counted === undefined || counted === '' ? it.qty : num(counted);
+              const isLow = effectiveQty <= num(it.reorderPoint);
+              return (
+                <tr key={it.id} className={"border-t border-navy/5 " + (isLow ? 'bg-alert/5' : '')}>
+                  <td className="p-2 font-medium">{it.name}</td>
+                  <td className="p-2 mono text-navy/60">{it.upc}</td>
+                  <td className="p-2 text-right mono">{it.qty}</td>
+                  <td className="p-2 text-right">
+                    <TInput type="number" className="w-20 text-right" value={counted === undefined ? '' : counted}
+                      onChange={e=>setCounts({...counts, [it.id]: e.target.value})} placeholder="—" />
+                  </td>
+                  <td className={"p-2 text-right mono font-semibold " + (variance>0?'text-ok':variance<0?'text-alert':'text-navy/30')}>
+                    {variance === null ? '—' : (variance>0?'+':'')+variance}
+                  </td>
+                  <td className="p-2 text-right mono text-navy/60">{it.reorderPoint}</td>
+                  <td className="p-2">{isLow && <span className="text-[10px] bg-alert text-white px-1.5 py-0.5 rounded-full">REORDER</span>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {db.reconciliations.length > 0 && (
+        <Card title="Reconciliation history">
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {db.reconciliations.slice(0,15).map(r => (
+              <div key={r.id} className="text-sm border-b border-navy/5 pb-2">
+                <span className="font-semibold">{r.date}</span> — {r.changes.length} change(s)
+                {r.changes.length > 0 && <span className="text-navy/50"> ({r.changes.slice(0,4).map(c=>c.name+' '+c.from+'→'+c.to).join(', ')}{r.changes.length>4?'…':''})</span>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
 
-                const updatedItems = receivePO.items.map((item, idx) => {
-                    const receivedNow = parseInt(fd.get(`received_${idx}`)) || 0;
-                    return {
-                        ...item,
-                        receivedQty: Math.min(item.qty, item.receivedQty + receivedNow)
-                    };
-                });
+// ---------------- SALES ----------------
+function Sales({ db, update }) {
+  const [newName, setNewName] = useState('');
+  const [salespersonId, setSalespersonId] = useState('');
+  const [lines, setLines] = useState([]);
+  const [pickItem, setPickItem] = useState('');
 
-                // Check if all items are fully received
-                const allFulfilled = updatedItems.every(i => i.receivedQty >= i.qty);
-                const newStatus = allFulfilled ? 'FULFILLED' : 'PARTIAL RECEIPT';
+  function addSalesperson() {
+    if (!newName.trim()) return;
+    update(d => d.salespeople.push({ id: uid(), name: newName.trim() }));
+    setNewName('');
+  }
+  function removeSalesperson(id) {
+    if (!confirm('Remove this salesperson?')) return;
+    update(d => { d.salespeople = d.salespeople.filter(s => s.id !== id); });
+  }
+  function addLine() {
+    const it = itemById(db, pickItem);
+    if (!it) return;
+    if (lines.find(l => l.itemId === it.id)) { setPickItem(''); return; }
+    setLines([...lines, { itemId: it.id, qty: 1, price: it.sellPrice }]);
+    setPickItem('');
+  }
+  function updateLine(itemId, field, value) {
+    setLines(lines.map(l => l.itemId === itemId ? { ...l, [field]: value } : l));
+  }
+  function removeLine(itemId) { setLines(lines.filter(l => l.itemId !== itemId)); }
+  const total = lines.reduce((s,l)=> s + num(l.qty)*num(l.price), 0);
 
-                setPOs(pos.map(p => p.id === receivePO.id ? { ...p, items: updatedItems, status: newStatus } : p));
+  function completeSale() {
+    if (!salespersonId) return alert('Choose a salesperson.');
+    if (lines.length === 0) return alert('Add at least one item.');
+    update(d => {
+      lines.forEach(l => {
+        const it = d.items.find(i => i.id === l.itemId);
+        if (it) it.qty = Math.max(0, num(it.qty) - num(l.qty));
+      });
+      d.sales.unshift({ id: uid(), date: todayISO(), salespersonId, lines, total });
+    });
+    setLines([]);
+  }
 
-                // Update inventory quantities
-                setInventory(inventory.map(inv => {
-                    const matchingItem = updatedItems.find(ui => ui.name.toLowerCase() === inv.name.toLowerCase());
-                    if(matchingItem) {
-                        const delta = matchingItem.receivedQty - (receivePO.items.find(ri => ri.name.toLowerCase() === inv.name.toLowerCase())?.receivedQty || 0);
-                        return { ...inv, stock: inv.stock + delta };
-                    }
-                    return inv;
-                }));
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-navy">Sales</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card title="Salespeople">
+          <div className="flex gap-2 mb-3">
+            <TInput placeholder="Name" value={newName} onChange={e=>setNewName(e.target.value)} className="flex-1" />
+            <Btn kind="primary" onClick={addSalesperson}>Add</Btn>
+          </div>
+          <ul className="space-y-1 text-sm">
+            {db.salespeople.map(sp => (
+              <li key={sp.id} className="flex justify-between items-center border-b border-navy/5 py-1">
+                {sp.name}
+                <button onClick={()=>removeSalesperson(sp.id)} className="text-alert text-xs">remove</button>
+              </li>
+            ))}
+            {db.salespeople.length === 0 && <p className="text-navy/40 text-sm">No salespeople yet.</p>}
+          </ul>
+        </Card>
 
-                setReceivePO(null);
-                addToast(`Goods receipt logged for ${receivePO.id}. Inventory updated.`, 'success');
-            };
+        <Card title="New sale" className="lg:col-span-2">
+          <div className="flex gap-2 mb-3 flex-wrap">
+            <TSelect value={salespersonId} onChange={e=>setSalespersonId(e.target.value)}>
+              <option value="">Salesperson…</option>
+              {db.salespeople.map(sp => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
+            </TSelect>
+            <TSelect value={pickItem} onChange={e=>setPickItem(e.target.value)} className="flex-1 min-w-[200px]">
+              <option value="">Add item…</option>
+              {db.items.map(it => <option key={it.id} value={it.id}>{it.name} ({it.upc})</option>)}
+            </TSelect>
+            <Btn kind="ghost" onClick={addLine} disabled={!pickItem}>+ Add</Btn>
+          </div>
+          <table className="w-full text-sm mb-3">
+            <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Item</th><th>Qty</th><th>Price</th><th>Line total</th><th></th></tr></thead>
+            <tbody>
+              {lines.map(l => {
+                const it = itemById(db, l.itemId);
+                return (
+                  <tr key={l.itemId} className="border-t border-navy/5">
+                    <td className="py-1.5">{it ? it.name : '—'}</td>
+                    <td className="text-center"><TInput type="number" className="w-16 text-right" value={l.qty} onChange={e=>updateLine(l.itemId,'qty',e.target.value)} /></td>
+                    <td className="text-center"><TInput type="number" step="0.01" className="w-20 text-right" value={l.price} onChange={e=>updateLine(l.itemId,'price',e.target.value)} /></td>
+                    <td className="text-right mono">{fmt(num(l.qty)*num(l.price))}</td>
+                    <td className="text-right"><button className="text-alert text-xs" onClick={()=>removeLine(l.itemId)}>remove</button></td>
+                  </tr>
+                );
+              })}
+              {lines.length === 0 && <tr><td colSpan="5" className="text-center text-navy/40 py-3">No items added yet.</td></tr>}
+            </tbody>
+          </table>
+          <div className="flex justify-between items-center">
+            <div className="font-bold text-lg text-navy">Total: {fmt(total)}</div>
+            <Btn kind="ok" onClick={completeSale}>Complete sale</Btn>
+          </div>
+        </Card>
+      </div>
 
-            // Cancel / Close remaining unfulfilled balance so it drops out of pending/active
-            const handleCloseRemaining = (poId) => {
-                setPOs(pos.map(p => {
-                    if(p.id !== poId) return p;
-                    const closedItems = p.items.map(item => ({
-                        ...item,
-                        receivedQty: item.qty // force received to match ordered so remaining balance is zeroed out
-                    }));
-                    return {
-                        ...p,
-                        items: closedItems,
-                        status: 'CLOSED / CANCELLED'
-                    };
-                }));
-                addToast(`PO ${poId} remaining balance cancelled and closed.`, 'success');
-            };
+      <Card title={"Sales history (" + db.sales.length + ")"}>
+        <table className="w-full text-sm">
+          <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Date</th><th className="text-left">Salesperson</th><th>Items</th><th className="text-right">Total</th></tr></thead>
+          <tbody>
+            {db.sales.slice(0,50).map(s => {
+              const sp = db.salespeople.find(p=>p.id===s.salespersonId);
+              return (
+                <tr key={s.id} className="border-t border-navy/5">
+                  <td className="py-1.5">{s.date}</td>
+                  <td>{sp ? sp.name : '—'}</td>
+                  <td className="text-center">{s.lines.length}</td>
+                  <td className="text-right mono">{fmt(s.total)}</td>
+                </tr>
+              );
+            })}
+            {db.sales.length === 0 && <tr><td colSpan="4" className="text-center text-navy/40 py-3">No sales recorded yet.</td></tr>}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
 
-            const handlePaymentSubmit = (e) => {
-                e.preventDefault();
-                const paymentVal = parseFloat(paymentAmountInput);
-                const total = calculatePOTotal(payPO.items);
-                const newPaidTotal = (payPO.paidAmount || 0) + paymentVal;
-                
-                let newPaymentStatus = 'PARTIALLY PAID';
-                if(newPaidTotal >= total) newPaymentStatus = 'PAID';
-                if(newPaidTotal <= 0) newPaymentStatus = 'UNPAID';
+// ---------------- VENDORS ----------------
+const emptyVendor = () => ({ id: uid(), name: '', contact: '', phone: '', email: '', terms: '', favorite: false });
 
-                setPOs(pos.map(p => p.id === payPO.id ? { ...p, paidAmount: newPaidTotal, paymentStatus: newPaymentStatus } : p));
-                setPayPO(null);
-                setPaymentAmountInput("");
-                addToast(`Payment of $${paymentVal.toLocaleString()} logged for ${payPO.id}. Status: ${newPaymentStatus}`, 'success');
-            };
+function Vendors({ db, update }) {
+  const [editing, setEditing] = useState(null);
+  function save(v) {
+    update(d => {
+      const idx = d.vendors.findIndex(x=>x.id===v.id);
+      if (idx>=0) d.vendors[idx]=v; else d.vendors.push(v);
+    });
+    setEditing(null);
+  }
+  function del(id) {
+    if (!confirm('Delete this vendor?')) return;
+    update(d => { d.vendors = d.vendors.filter(v=>v.id!==id); });
+  }
+  function toggleFav(v) { save({...v, favorite: !v.favorite}); }
 
-            const submitVendorRating = (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                const avgScore = Math.round((parseInt(fd.get('quality')) + parseInt(fd.get('delivery')) + parseInt(fd.get('cost'))) / 3 * 20);
-                
-                setVendors(vendors.map(v => {
-                    if(v.id === ratePO.vendorId) {
-                        const newScore = Math.round((v.score + avgScore) / 2);
-                        return { ...v, score: newScore };
-                    }
-                    return v;
-                }));
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-navy">Vendors ({db.vendors.length})</h1>
+        <Btn kind="primary" onClick={()=>setEditing(emptyVendor())}>+ Add vendor</Btn>
+      </div>
+      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
+            <tr><th className="p-2"></th><th className="p-2 text-left">Name</th><th className="p-2 text-left">Contact</th><th className="p-2 text-left">Phone</th><th className="p-2 text-left">Email</th><th className="p-2 text-left">Terms</th><th className="p-2"></th></tr>
+          </thead>
+          <tbody>
+            {db.vendors.map(v => (
+              <tr key={v.id} className="border-t border-navy/5">
+                <td className="p-2"><button onClick={()=>toggleFav(v)} title="Toggle favorite">{v.favorite ? '★' : '☆'}</button></td>
+                <td className="p-2 font-medium">{v.name}</td>
+                <td className="p-2 text-navy/60">{v.contact}</td>
+                <td className="p-2 text-navy/60">{v.phone}</td>
+                <td className="p-2 text-navy/60">{v.email}</td>
+                <td className="p-2 text-navy/60">{v.terms}</td>
+                <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setEditing(v)}>Edit</Btn></td>
+              </tr>
+            ))}
+            {db.vendors.length===0 && <tr><td colSpan="7" className="p-6 text-center text-navy/40">No vendors yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {editing && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={()=>setEditing(null)}>
+          <div className="bg-white rounded-lg max-w-md w-full p-5" onClick={e=>e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-navy mb-3">{db.vendors.find(v=>v.id===editing.id) ? 'Edit vendor' : 'Add vendor'}</h3>
+            <div className="grid grid-cols-1 gap-3">
+              <Field label="Name"><TInput value={editing.name} onChange={e=>setEditing({...editing,name:e.target.value})} /></Field>
+              <Field label="Contact person"><TInput value={editing.contact} onChange={e=>setEditing({...editing,contact:e.target.value})} /></Field>
+              <Field label="Phone"><TInput value={editing.phone} onChange={e=>setEditing({...editing,phone:e.target.value})} /></Field>
+              <Field label="Email"><TInput value={editing.email} onChange={e=>setEditing({...editing,email:e.target.value})} /></Field>
+              <Field label="Terms (e.g. Net 30, COD)"><TInput value={editing.terms} onChange={e=>setEditing({...editing,terms:e.target.value})} /></Field>
+              <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={editing.favorite} onChange={e=>setEditing({...editing,favorite:e.target.checked})}/> Favorite vendor</label>
+            </div>
+            <div className="flex justify-between mt-5">
+              <Btn kind="danger" onClick={()=>{del(editing.id); setEditing(null);}}>Delete</Btn>
+              <div className="flex gap-2">
+                <Btn kind="ghost" onClick={()=>setEditing(null)}>Cancel</Btn>
+                <Btn kind="primary" onClick={()=>save(editing)} disabled={!editing.name}>Save</Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
-                setPOs(pos.map(p => p.id === ratePO.id ? { ...p, rated: true } : p));
-                setRatePO(null);
-                addToast(`Vendor scorecard submitted! Vendor performance score updated.`, 'success');
-            };
+// ---------------- PURCHASING ----------------
+function newPOShell(db) {
+  const n = db.counters.po;
+  return { id: uid(), number: 'PO-' + n, vendorId: '', status: 'draft', createdDate: todayISO(), lines: [], payments: [], notes: '' };
+}
 
-            const filteredPOs = pos.filter(p => {
-                const matchesSearch = p.id.toLowerCase().includes(searchTerm.toLowerCase()) || p.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) || p.items.some(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
-                const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
-                return matchesSearch && matchesStatus;
-            });
+function Purchasing({ db, update }) {
+  const [building, setBuilding] = useState(null);
+  const [openId, setOpenId] = useState(null);
 
-            return (
-                <div className="fade-in space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Purchase Orders & Receiving</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Manage multi-item orders, partial receipts, partial payments, and cancellation workflows.</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => exportCSV(pos, 'purchase_orders.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
-                                <i className="fa-solid fa-download text-slate-400"></i> Export
-                            </button>
-                            <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
-                                <i className="fa-solid fa-plus"></i> Create Multi-Item PO
-                            </button>
-                        </div>
-                    </div>
+  function startNew() {
+    setBuilding(newPOShell(db));
+  }
+  function loadQueueIntoBuilder() {
+    if (!building) return;
+    const lines = db.orderQueue.map(id => {
+      const it = itemById(db, id);
+      if (!it) return null;
+      const suggestedQty = it.reorderQty > 0 ? it.reorderQty : Math.max(1, num(it.reorderPoint)*2 - num(it.qty));
+      return { itemId: it.id, qtyOrdered: suggestedQty, qtyReceived: 0, cost: it.cost };
+    }).filter(Boolean);
+    setBuilding({ ...building, lines: [...building.lines, ...lines.filter(l => !building.lines.find(x=>x.itemId===l.itemId))] });
+    update(d => { d.orderQueue = []; });
+  }
+  function saveBuilding(sendNow) {
+    if (!building.vendorId) return alert('Choose a vendor.');
+    if (building.lines.length === 0) return alert('Add at least one line item.');
+    update(d => {
+      d.pos.push({ ...building, status: sendNow ? 'sent' : 'draft', sentDate: sendNow ? todayISO() : null });
+      d.counters.po += 1;
+    });
+    setBuilding(null);
+  }
 
-                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
-                            <div className="relative w-80">
-                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                                <input type="text" placeholder="Search PO ID, vendor, item..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status Filter:</span>
-                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 bg-white rounded-xl text-xs font-semibold p-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="ALL">All Statuses</option>
-                                    <option value="PENDING APPROVAL">Pending Approval</option>
-                                    <option value="ISSUED">Issued</option>
-                                    <option value="PARTIAL RECEIPT">Partial Receipt</option>
-                                    <option value="FULFILLED">Fulfilled</option>
-                                    <option value="CLOSED / CANCELLED">Closed / Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
+  const po = db.pos.find(p => p.id === openId);
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-600 whitespace-nowrap">
-                                <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
-                                    <tr>
-                                        <th className="p-4">PO # & Date</th>
-                                        <th className="p-4">Vendor</th>
-                                        <th className="p-4">Line Items</th>
-                                        <th className="p-4">Total Amount</th>
-                                        <th className="p-4">Status</th>
-                                        <th className="p-4">Payment</th>
-                                        <th className="p-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredPOs.length > 0 ? filteredPOs.map((p) => {
-                                        const totalAmt = calculatePOTotal(p.items);
-                                        const itemCount = p.items.length;
-                                        return (
-                                            <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                                <td className="p-4">
-                                                    <p className="font-bold text-slate-900">{p.id}</p>
-                                                    <p className="text-xs text-slate-400">{p.date}</p>
-                                                </td>
-                                                <td className="p-4 font-semibold text-slate-800">{p.vendorName}</td>
-                                                <td className="p-4">
-                                                    <button onClick={() => setViewItemsPO(p)} className="text-xs font-bold text-indigo-600 hover:underline bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 inline-flex items-center gap-1.5">
-                                                        <i className="fa-solid fa-list-check"></i> {itemCount} items (View breakdown)
-                                                    </button>
-                                                </td>
-                                                <td className="p-4 font-bold text-slate-900">${totalAmt.toLocaleString()}</td>
-                                                <td className="p-4"><StatusBadge status={p.status} /></td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <StatusBadge status={p.paymentStatus} />
-                                                        <span className="text-xs text-slate-500 font-medium">(${p.paidAmount || 0} paid)</span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 text-right space-x-2">
-                                                    {p.status === 'PENDING APPROVAL' && (
-                                                        <button onClick={() => handleApprovePO(p.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-xs">
-                                                            <i className="fa-solid fa-check mr-1"></i> Approve
-                                                        </button>
-                                                    )}
-                                                    {p.status !== 'FULFILLED' && p.status !== 'CLOSED / CANCELLED' && p.status !== 'PENDING APPROVAL' && (
-                                                        <>
-                                                            <button onClick={() => setReceivePO(p)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition shadow-xs">
-                                                                <i className="fa-solid fa-boxes-stacked mr-1"></i> Receive
-                                                            </button>
-                                                            <button onClick={() => handleCloseRemaining(p.id)} className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold hover:bg-rose-100 transition shadow-xs" title="Zero out remaining unfulfilled quantities and close order">
-                                                                <i className="fa-solid fa-ban mr-1"></i> Close Balance
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {p.paymentStatus !== 'PAID' && p.status !== 'CLOSED / CANCELLED' && (
-                                                        <button onClick={() => { setPayPO(p); setPaymentAmountInput(totalAmt - (p.paidAmount || 0)); }} className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-semibold hover:bg-teal-100 transition shadow-xs">
-                                                            <i className="fa-solid fa-file-invoice-dollar mr-1"></i> Pay...
-                                                        </button>
-                                                    )}
-                                                    {p.status === 'FULFILLED' && !p.rated && (
-                                                        <button onClick={() => setRatePO(p)} className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold hover:bg-amber-100 transition shadow-xs">
-                                                            <i className="fa-solid fa-star mr-1"></i> Rate Vendor
-                                                        </button>
-                                                    )}
-                                                    {p.rated && (
-                                                        <span className="text-xs text-slate-400 italic">Rated <i className="fa-solid fa-star text-amber-400"></i></span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    }) : (
-                                        <tr><td colSpan="7" className="p-12 text-center text-slate-400 font-medium">No Purchase Orders match your search or filter.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <h1 className="text-2xl font-bold text-navy">Purchasing</h1>
+        <Btn kind="primary" onClick={startNew}>+ New purchase order</Btn>
+      </div>
 
-                    {/* VIEW ITEMS BREAKDOWN MODAL */}
-                    <Modal isOpen={!!viewItemsPO} onClose={() => setViewItemsPO(null)} title={`PO Details - ${viewItemsPO?.id}`} maxWidth="max-w-2xl">
-                        {viewItemsPO && (
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center text-sm bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                    <div>
-                                        <p className="text-slate-500 text-xs uppercase font-bold">Vendor</p>
-                                        <p className="font-bold text-slate-800">{viewItemsPO.vendorName}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-slate-500 text-xs uppercase font-bold">Order Date</p>
-                                        <p className="font-bold text-slate-800">{viewItemsPO.date}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-slate-500 text-xs uppercase font-bold">Total Value</p>
-                                        <p className="font-bold text-indigo-600">${calculatePOTotal(viewItemsPO.items).toLocaleString()}</p>
-                                    </div>
-                                </div>
-                                <h4 className="font-bold text-slate-800 text-sm mt-4">Line Items ({viewItemsPO.items.length})</h4>
-                                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                                    <table className="w-full text-left text-sm text-slate-600">
-                                        <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase">
-                                            <tr>
-                                                <th className="p-3">Item Description</th>
-                                                <th className="p-3">Ordered Qty</th>
-                                                <th className="p-3">Received Qty</th>
-                                                <th className="p-3">Unit Price</th>
-                                                <th className="p-3 text-right">Line Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {viewItemsPO.items.map((item, idx) => (
-                                                <tr key={idx} className="border-b border-slate-100">
-                                                    <td className="p-3 font-semibold text-slate-800">{item.name}</td>
-                                                    <td className="p-3">{item.qty}</td>
-                                                    <td className="p-3 font-medium text-indigo-600">{item.receivedQty}</td>
-                                                    <td className="p-3">${item.price.toLocaleString()}</td>
-                                                    <td className="p-3 text-right font-bold text-slate-900">${(item.qty * item.price).toLocaleString()}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </Modal>
+      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
+            <tr><th className="p-2 text-left">PO#</th><th className="p-2 text-left">Vendor</th><th className="p-2 text-left">Status</th><th className="p-2 text-left">Created</th><th className="p-2 text-right">Order total</th><th className="p-2 text-right">Balance</th><th className="p-2"></th></tr>
+          </thead>
+          <tbody>
+            {db.pos.slice().reverse().map(p => {
+              const t = poTotals(p);
+              return (
+                <tr key={p.id} className="border-t border-navy/5">
+                  <td className="p-2 font-medium">{p.number}</td>
+                  <td className="p-2">{vendorName(db, p.vendorId)}</td>
+                  <td className="p-2">{statusBadge(p.status)}</td>
+                  <td className="p-2 text-navy/60">{p.createdDate}</td>
+                  <td className="p-2 text-right mono">{fmt(t.ordered)}</td>
+                  <td className={"p-2 text-right mono font-semibold " + (t.balance>0?'text-alert':'text-ok')}>{fmt(t.balance)}</td>
+                  <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setOpenId(p.id)}>Open</Btn></td>
+                </tr>
+              );
+            })}
+            {db.pos.length===0 && <tr><td colSpan="7" className="p-6 text-center text-navy/40">No purchase orders yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
 
-                    {/* CREATE MULTI-ITEM PO MODAL */}
-                    <Modal isOpen={createModal} onClose={() => setCreateModal(false)} title="Create Multi-Item Purchase Order" maxWidth="max-w-2xl">
-                        <form onSubmit={handleCreatePO} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Select Vendor</label>
-                                <select required name="vendorId" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm focus:ring-2 focus:ring-primary outline-none">
-                                    <option value="">-- Choose Vendor --</option>
-                                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.terms})</option>)}
-                                </select>
-                            </div>
+      {building && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={()=>setBuilding(null)}>
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-navy mb-3">Build purchase order — {building.number}</h3>
+            <div className="flex gap-2 mb-3 flex-wrap items-end">
+              <Field label="Vendor">
+                <TSelect value={building.vendorId} onChange={e=>setBuilding({...building, vendorId: e.target.value})}>
+                  <option value="">Choose vendor…</option>
+                  {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}{v.favorite?' ★':''}</option>)}
+                </TSelect>
+              </Field>
+              {db.orderQueue.length > 0 && <Btn kind="brass" onClick={loadQueueIntoBuilder}>Load {db.orderQueue.length} queued item(s)</Btn>}
+              <POLinePicker db={db} onAdd={(line)=>setBuilding({...building, lines:[...building.lines.filter(l=>l.itemId!==line.itemId), line]})} />
+            </div>
+            <table className="w-full text-sm mb-2">
+              <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Item</th><th>Qty ordered</th><th>Cost/unit</th><th className="text-right">Line total</th><th></th></tr></thead>
+              <tbody>
+                {building.lines.map(l => {
+                  const it = itemById(db, l.itemId);
+                  return (
+                    <tr key={l.itemId} className="border-t border-navy/5">
+                      <td className="py-1.5">{it ? it.name : '—'}</td>
+                      <td className="text-center"><TInput type="number" className="w-20 text-right" value={l.qtyOrdered} onChange={e=>setBuilding({...building, lines: building.lines.map(x=>x.itemId===l.itemId?{...x,qtyOrdered:e.target.value}:x)})} /></td>
+                      <td className="text-center"><TInput type="number" step="0.01" className="w-20 text-right" value={l.cost} onChange={e=>setBuilding({...building, lines: building.lines.map(x=>x.itemId===l.itemId?{...x,cost:e.target.value}:x)})} /></td>
+                      <td className="text-right mono">{fmt(num(l.qtyOrdered)*num(l.cost))}</td>
+                      <td className="text-right"><button className="text-alert text-xs" onClick={()=>setBuilding({...building, lines: building.lines.filter(x=>x.itemId!==l.itemId)})}>remove</button></td>
+                    </tr>
+                  );
+                })}
+                {building.lines.length===0 && <tr><td colSpan="5" className="text-center text-navy/40 py-3">No lines yet.</td></tr>}
+              </tbody>
+            </table>
+            <div className="flex justify-between items-center mt-4">
+              <Btn kind="ghost" onClick={()=>setBuilding(null)}>Cancel</Btn>
+              <div className="flex gap-2">
+                <Btn kind="ghost" onClick={()=>saveBuilding(false)}>Save as draft</Btn>
+                <Btn kind="primary" onClick={()=>saveBuilding(true)}>Save &amp; send to vendor</Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Order Line Items (4-5 items supported)</label>
-                                    <button type="button" onClick={addDraftItemRow} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">
-                                        <i className="fa-solid fa-plus mr-1"></i> Add Line Item
-                                    </button>
-                                </div>
+      {po && <PODetail db={db} update={update} po={po} onClose={()=>setOpenId(null)} />}
+    </div>
+  );
+}
 
-                                {draftItems.map((item, idx) => (
-                                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                        <div className="flex-1">
-                                            <input required list="catalog-items" name={`itemName_${idx}`} placeholder="Item name or SKU" className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-primary" />
-                                        </div>
-                                        <div className="w-24">
-                                            <input required type="number" min="1" name={`itemQty_${idx}`} placeholder="Qty" className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-primary" defaultValue="1" />
-                                        </div>
-                                        <div className="w-28">
-                                            <input required type="number" step="0.01" name={`itemPrice_${idx}`} placeholder="Unit $" className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-primary" />
-                                        </div>
-                                        {draftItems.length > 1 && (
-                                            <button type="button" onClick={() => removeDraftItemRow(idx)} className="text-rose-500 hover:text-rose-700 p-2">
-                                                <i className="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <datalist id="catalog-items">
-                                    {catalog.map(c => <option key={c.id} value={c.name} />)}
-                                </datalist>
-                            </div>
+function POLinePicker({ db, onAdd }) {
+  const [id, setId] = useState('');
+  const [qty, setQty] = useState(1);
+  function add() {
+    const it = itemById(db, id);
+    if (!it) return;
+    onAdd({ itemId: it.id, qtyOrdered: num(qty)||1, qtyReceived: 0, cost: it.cost });
+    setId(''); setQty(1);
+  }
+  return (
+    <div className="flex gap-2 items-end">
+      <Field label="Add item">
+        <TSelect value={id} onChange={e=>setId(e.target.value)} className="min-w-[200px]">
+          <option value="">Choose item…</option>
+          {db.items.map(it => <option key={it.id} value={it.id}>{it.name} ({it.upc})</option>)}
+        </TSelect>
+      </Field>
+      <Field label="Qty"><TInput type="number" className="w-20" value={qty} onChange={e=>setQty(e.target.value)} /></Field>
+      <Btn kind="ghost" onClick={add} disabled={!id}>+ Add line</Btn>
+    </div>
+  );
+}
 
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
-                                <i className="fa-solid fa-circle-info mt-0.5"></i>
-                                <span>POs exceeding $5,000 will automatically require managerial sign-off before being issued.</span>
-                            </div>
-                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition shadow-sm mt-2">Submit Purchase Order</button>
-                        </form>
-                    </Modal>
+function PODetail({ db, update, po, onClose }) {
+  const [receiving, setReceiving] = useState(false);
+  const [recvQty, setRecvQty] = useState({});
+  const [payAmt, setPayAmt] = useState('');
+  const [moveVendor, setMoveVendor] = useState('');
+  const vendor = db.vendors.find(v => v.id === po.vendorId);
+  const t = poTotals(po);
 
-                    {/* RECEIVE ITEMS MODAL */}
-                    <Modal isOpen={!!receivePO} onClose={() => setReceivePO(null)} title={`Log Goods Receipt - ${receivePO?.id}`} maxWidth="max-w-xl">
-                        {receivePO && (
-                            <form onSubmit={handleReceiveSubmit} className="space-y-4">
-                                <p className="text-sm text-slate-500">Enter quantities received for each line item on this purchase order:</p>
-                                <div className="space-y-3">
-                                    {receivePO.items.map((item, idx) => {
-                                        const remaining = item.qty - item.receivedQty;
-                                        return (
-                                            <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-bold text-slate-800 text-sm">{item.name}</p>
-                                                    <p className="text-xs text-slate-500">Ordered: {item.qty} | Already Received: {item.receivedQty} | Remaining: <span className="font-bold text-indigo-600">{remaining}</span></p>
-                                                </div>
-                                                <div className="w-28">
-                                                    <input type="number" min="0" max={remaining} defaultValue={remaining} name={`received_${idx}`} className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-primary" />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm mt-4">Confirm & Update Inventory Stock</button>
-                            </form>
-                        )}
-                    </Modal>
+  function startReceive() {
+    const init = {};
+    po.lines.forEach(l => { init[l.itemId] = num(l.qtyOrdered) - num(l.qtyReceived); });
+    setRecvQty(init);
+    setReceiving(true);
+  }
+  function confirmReceive() {
+    update(d => {
+      const target = d.pos.find(p => p.id === po.id);
+      target.lines.forEach(l => {
+        const recv = num(recvQty[l.itemId]) || 0;
+        l.qtyReceived = Math.min(num(l.qtyOrdered), num(l.qtyReceived) + recv);
+        const it = d.items.find(i => i.id === l.itemId);
+        if (it) it.qty = num(it.qty) + recv;
+      });
+      const fullyReceived = target.lines.every(l => num(l.qtyReceived) >= num(l.qtyOrdered));
+      target.status = fullyReceived ? 'received' : 'partial';
+      target.receivedDate = fullyReceived ? todayISO() : target.receivedDate;
+    });
+    setReceiving(false);
+  }
+  function recordPayment() {
+    const amt = num(payAmt);
+    if (amt <= 0) return;
+    update(d => {
+      const target = d.pos.find(p => p.id === po.id);
+      target.payments = target.payments || [];
+      target.payments.push({ date: todayISO(), amount: amt });
+    });
+    setPayAmt('');
+  }
+  function closePO() {
+    if (!confirm('Close this purchase order? It will no longer be editable.')) return;
+    update(d => { d.pos.find(p=>p.id===po.id).status = 'closed'; });
+    onClose();
+  }
+  function sendShortfallElsewhere() {
+    if (!moveVendor) return alert('Choose a vendor to send the remainder to.');
+    const shortLines = po.lines.filter(l => num(l.qtyOrdered) > num(l.qtyReceived));
+    if (shortLines.length === 0) return alert('Nothing outstanding on this PO.');
+    update(d => {
+      const n = d.counters.po;
+      d.pos.push({
+        id: uid(), number: 'PO-' + n, vendorId: moveVendor, status: 'draft', createdDate: todayISO(),
+        lines: shortLines.map(l => ({ itemId: l.itemId, qtyOrdered: num(l.qtyOrdered) - num(l.qtyReceived), qtyReceived: 0, cost: l.cost })),
+        payments: [], notes: 'Shortfall carried over from ' + po.number
+      });
+      d.counters.po += 1;
+      const target = d.pos.find(p => p.id === po.id);
+      target.lines.forEach(l => { l.qtyOrdered = l.qtyReceived; });
+      target.status = 'closed';
+      target.notes = (target.notes || '') + ' Remainder moved to PO-' + n + '.';
+    });
+    onClose();
+  }
 
-                    {/* FLEXIBLE & PARTIAL PAYMENT MODAL */}
-                    <Modal isOpen={!!payPO} onClose={() => setPayPO(null)} title={`Accounts Payable / Payment - ${payPO?.id}`}>
-                        {payPO && (
-                            <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm space-y-1">
-                                    <p><strong>Vendor:</strong> {payPO.vendorName}</p>
-                                    <p><strong>Total PO Amount:</strong> ${calculatePOTotal(payPO.items).toLocaleString()}</p>
-                                    <p><strong>Already Paid:</strong> <span className="text-emerald-600 font-bold">${(payPO.paidAmount || 0).toLocaleString()}</span></p>
-                                    <p><strong>Remaining Balance Due:</strong> <span className="text-rose-600 font-bold">${(calculatePOTotal(payPO.items) - (payPO.paidAmount || 0)).toLocaleString()}</span></p>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Amount ($)</label>
-                                    <input required type="number" step="0.01" max={calculatePOTotal(payPO.items) - (payPO.paidAmount || 0)} value={paymentAmountInput} onChange={(e)=>setPaymentAmountInput(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold" />
-                                    <p className="text-xs text-slate-400 mt-1">Enter partial amount or full remaining balance.</p>
-                                </div>
-                                <button type="submit" className="w-full bg-teal-600 text-white py-3 rounded-xl font-semibold hover:bg-teal-700 transition shadow-sm mt-2">Submit Payment Record</button>
-                            </form>
-                        )}
-                    </Modal>
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="font-bold text-lg text-navy">{po.number} {statusBadge(po.status)}</h3>
+            <p className="text-sm text-navy/60">{vendor ? vendor.name : 'No vendor'} {vendor && vendor.terms && <span> · terms: {vendor.terms}</span>}</p>
+            {po.notes && <p className="text-xs text-navy/40 mt-1">{po.notes}</p>}
+          </div>
+          <button onClick={onClose} className="text-navy/40 text-xl leading-none">×</button>
+        </div>
 
-                    {/* VENDOR RATING MODAL */}
-                    <Modal isOpen={!!ratePO} onClose={() => setRatePO(null)} title={`Vendor Scorecard - ${ratePO?.vendorName}`}>
-                        {ratePO && (
-                            <form onSubmit={submitVendorRating} className="space-y-4">
-                                <p className="text-sm text-slate-500">Rate vendor performance for completed order <strong>{ratePO.id}</strong>.</p>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Product Quality (1-5)</label>
-                                    <select name="quality" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
-                                        <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
-                                        <option value="4">⭐⭐⭐⭐ Good</option>
-                                        <option value="3">⭐⭐⭐ Average</option>
-                                        <option value="2">⭐⭐ Below Average</option>
-                                        <option value="1">⭐ Poor</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Delivery Timeliness (1-5)</label>
-                                    <select name="delivery" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
-                                        <option value="5">⭐⭐⭐⭐⭐ On Time / Early</option>
-                                        <option value="4">⭐⭐⭐⭐ Minor Delay</option>
-                                        <option value="3">⭐⭐⭐ Noticeable Delay</option>
-                                        <option value="2">⭐⭐ Significant Delay</option>
-                                        <option value="1">⭐ Unacceptable Delay</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Pricing & Invoicing Accuracy (1-5)</label>
-                                    <select name="cost" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
-                                        <option value="5">⭐⭐⭐⭐⭐ Exact match / Great terms</option>
-                                        <option value="4">⭐⭐⭐⭐ Minor discrepancy resolved</option>
-                                        <option value="3">⭐⭐⭐ Average</option>
-                                        <option value="2">⭐⭐ Billing errors</option>
-                                        <option value="1">⭐ Severe overcharging / Disputed</option>
-                                    </select>
-                                </div>
-                                <button type="submit" className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 transition shadow-sm mt-2">Submit Scorecard & Update Vendor</button>
-                            </form>
-                        )}
-                    </Modal>
-                </div>
-            );
-        };
+        <table className="w-full text-sm mb-3">
+          <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Item</th><th>Ordered</th><th>Received</th><th>Cost</th><th className="text-right">Line total</th></tr></thead>
+          <tbody>
+            {po.lines.map(l => {
+              const it = itemById(db, l.itemId);
+              return (
+                <tr key={l.itemId} className="border-t border-navy/5">
+                  <td className="py-1.5">{it ? it.name : '—'}</td>
+                  <td className="text-center mono">{l.qtyOrdered}</td>
+                  <td className={"text-center mono " + (num(l.qtyReceived)<num(l.qtyOrdered) ? 'text-alert font-semibold' : 'text-ok')}>{l.qtyReceived}</td>
+                  <td className="text-center mono">{fmt(l.cost)}</td>
+                  <td className="text-right mono">{fmt(num(l.qtyOrdered)*num(l.cost))}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
 
-        const SourcingView = ({ bids, setBids, pos, setPOs }) => {
-            const { addToast } = useToast();
-            
-            const groupedBids = useMemo(() => {
-                return bids.reduce((acc, bid) => {
-                    if (!acc[bid.itemName]) acc[bid.itemName] = [];
-                    acc[bid.itemName].push(bid);
-                    return acc;
-                }, {});
-            }, [bids]);
+        <div className="flex flex-wrap gap-4 text-sm mb-4 bg-navy/5 rounded p-3">
+          <div><span className="text-navy/50">Order total: </span><span className="font-semibold">{fmt(t.ordered)}</span></div>
+          <div><span className="text-navy/50">Received value (owed): </span><span className="font-semibold">{fmt(t.received)}</span></div>
+          <div><span className="text-navy/50">Paid: </span><span className="font-semibold text-ok">{fmt(t.paid)}</span></div>
+          <div><span className="text-navy/50">Balance: </span><span className={"font-semibold " + (t.balance>0?'text-alert':'text-ok')}>{fmt(t.balance)}</span></div>
+        </div>
 
-            const handleAward = (awardedBid) => {
-                const updatedBids = bids.map(b => b.id === awardedBid.id ? { ...b, status: 'AWARDED' } : b);
-                setBids(updatedBids);
-
-                const newPO = {
-                    id: generateId('PO'),
-                    vendorId: awardedBid.vendorId,
-                    vendorName: awardedBid.vendorName,
-                    date: new Date().toISOString().split('T')[0],
-                    status: 'ISSUED',
-                    paymentStatus: 'UNPAID',
-                    paidAmount: 0,
-                    items: [
-                        { name: awardedBid.itemName, qty: 10, receivedQty: 0, price: awardedBid.amount }
-                    ]
-                };
-                setPOs([newPO, ...pos]);
-                addToast(`PO ${newPO.id} generated for winning bidder ${awardedBid.vendorName}!`, 'success');
-            };
-
-            return (
-                <div className="fade-in space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sourcing & Bidding Matrix</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Compare incoming vendor quotes side-by-side and award purchase orders instantly.</p>
-                        </div>
-                        <button onClick={() => addToast('Simulated incoming vendor bid.', 'info')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
-                            <i className="fa-solid fa-rotate text-slate-400"></i> Refresh Bids
-                        </button>
-                    </div>
-
-                    {Object.entries(groupedBids).map(([item, itemBids]) => {
-                        const pendingBids = itemBids.filter(b => b.status === 'PENDING');
-                        const minAmount = pendingBids.length > 0 ? Math.min(...pendingBids.map(b => b.amount)) : null;
-                        const isAwarded = itemBids.some(b => b.status === 'AWARDED');
-
-                        return (
-                            <div key={item} className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden mb-6">
-                                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                                    <h3 className="font-bold text-base text-slate-800 flex items-center gap-2"><i className="fa-solid fa-box text-slate-400"></i> {item}</h3>
-                                    {isAwarded && <StatusBadge status="AWARDED" />}
-                                </div>
-                                <table className="w-full text-left text-sm text-slate-600">
-                                    <thead className="bg-white border-b border-slate-100 text-xs uppercase tracking-wider text-slate-400">
-                                        <tr>
-                                            <th className="p-4">Vendor</th>
-                                            <th className="p-4">Unit Bid Amount</th>
-                                            <th className="p-4">Status</th>
-                                            <th className="p-4 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {itemBids.map(bid => (
-                                            <tr key={bid.id} className={`border-b border-slate-100 ${bid.amount === minAmount && !isAwarded ? 'bg-emerald-50/50' : 'hover:bg-slate-50'} transition`}>
-                                                <td className="p-4 font-bold text-slate-900">{bid.vendorName}</td>
-                                                <td className="p-4 font-bold text-slate-800">
-                                                    ${bid.amount.toLocaleString()}
-                                                    {bid.amount === minAmount && !isAwarded && <span className="ml-3 text-xs bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">Lowest Bid</span>}
-                                                </td>
-                                                <td className="p-4"><StatusBadge status={bid.status} /></td>
-                                                <td className="p-4 text-right">
-                                                    {!isAwarded && bid.status === 'PENDING' && (
-                                                        <button onClick={() => handleAward(bid)} className="px-3.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-indigo-600 transition shadow-xs">
-                                                            Award & Generate PO
-                                                        </button>
-                                                    )}
-                                                    {bid.status === 'AWARDED' && (
-                                                        <span className="text-slate-400 text-xs italic font-medium">Awarded Winner</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )
+        {po.status !== 'closed' && (
+          <div className="space-y-3">
+            {(po.status==='sent' || po.status==='partial') && !receiving && (
+              <Btn kind="brass" onClick={startReceive}>Receive shipment</Btn>
+            )}
+            {receiving && (
+              <Card title="Receive shipment">
+                <table className="w-full text-sm mb-2">
+                  <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left">Item</th><th>Outstanding</th><th>Receiving now</th></tr></thead>
+                  <tbody>
+                    {po.lines.filter(l=>num(l.qtyOrdered)>num(l.qtyReceived)).map(l => {
+                      const it = itemById(db, l.itemId);
+                      const outstanding = num(l.qtyOrdered)-num(l.qtyReceived);
+                      return (
+                        <tr key={l.itemId} className="border-t border-navy/5">
+                          <td className="py-1">{it?it.name:'—'}</td>
+                          <td className="text-center mono">{outstanding}</td>
+                          <td className="text-center"><TInput type="number" className="w-20 text-right" value={recvQty[l.itemId]} max={outstanding}
+                            onChange={e=>setRecvQty({...recvQty, [l.itemId]: Math.min(num(e.target.value), outstanding)})} /></td>
+                        </tr>
+                      );
                     })}
+                  </tbody>
+                </table>
+                <div className="flex gap-2"><Btn kind="ok" onClick={confirmReceive}>Confirm receipt</Btn><Btn kind="ghost" onClick={()=>setReceiving(false)}>Cancel</Btn></div>
+              </Card>
+            )}
+
+            {po.status === 'partial' && (
+              <Card title="Vendor can't supply the rest">
+                <div className="flex gap-2 items-end flex-wrap">
+                  <Field label="Send remaining qty to vendor">
+                    <TSelect value={moveVendor} onChange={e=>setMoveVendor(e.target.value)}>
+                      <option value="">Choose vendor…</option>
+                      {db.vendors.filter(v=>v.id!==po.vendorId).map(v=><option key={v.id} value={v.id}>{v.name}</option>)}
+                    </TSelect>
+                  </Field>
+                  <Btn kind="brass" onClick={sendShortfallElsewhere}>Create PO for shortfall &amp; close this one</Btn>
                 </div>
-            );
-        };
+              </Card>
+            )}
 
-        const VendorsView = ({ vendors, setVendors }) => {
-            const { addToast } = useToast();
-            const [searchTerm, setSearchTerm] = useState("");
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            
-            const handleAddVendor = (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                const newVendor = {
-                    id: generateId('v'),
-                    name: fd.get('name'),
-                    category: fd.get('category'),
-                    contact: fd.get('contact'),
-                    terms: fd.get('terms'),
-                    score: 95
-                };
-                setVendors([...vendors, newVendor]);
-                setIsModalOpen(false);
-                addToast('New vendor successfully registered!', 'success');
-            };
+            <Card title="Record payment">
+              <div className="flex gap-2 items-end">
+                <Field label="Amount"><TInput type="number" step="0.01" className="w-32" value={payAmt} onChange={e=>setPayAmt(e.target.value)} /></Field>
+                <Btn kind="ok" onClick={recordPayment}>Record payment</Btn>
+              </div>
+              {po.payments && po.payments.length>0 && (
+                <ul className="text-xs text-navy/50 mt-2">{po.payments.map((p,i)=><li key={i}>{p.date}: {fmt(p.amount)}</li>)}</ul>
+              )}
+            </Card>
 
-            return (
-                <div className="fade-in space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Vendor Directory & Scorecards</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Manage partner contacts, payment terms, and performance scores.</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => exportCSV(vendors, 'vendors.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
-                                <i className="fa-solid fa-download text-slate-400"></i> Export CSV
-                            </button>
-                            <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
-                                <i className="fa-solid fa-plus"></i> Add Vendor
-                            </button>
-                        </div>
-                    </div>
+            <div className="flex justify-end"><Btn kind="danger" onClick={closePO}>Close purchase order</Btn></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50">
-                            <div className="relative w-80">
-                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                                <input type="text" placeholder="Search vendors..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                            </div>
-                        </div>
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th className="p-4">Vendor Name</th>
-                                    <th className="p-4">Category</th>
-                                    <th className="p-4">Contact</th>
-                                    <th className="p-4">Payment Terms</th>
-                                    <th className="p-4">Performance Score</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {vendors.filter(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())).map(v => (
-                                    <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                        <td className="p-4 font-bold text-slate-900">{v.name}</td>
-                                        <td className="p-4 text-slate-600">{v.category}</td>
-                                        <td className="p-4 text-slate-600">{v.contact}</td>
-                                        <td className="p-4 text-slate-600 font-medium">{v.terms}</td>
-                                        <td className="p-4">
-                                            <span className={`px-3 py-1 rounded-xl text-xs font-bold ${v.score >= 90 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                                                {v.score} / 100
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+// ---------------- RFQ / BIDS ----------------
+function RFQ({ db, update }) {
+  const [building, setBuilding] = useState(false);
+  const [pickItems, setPickItems] = useState({});
+  const [pickVendors, setPickVendors] = useState({});
+  const [openId, setOpenId] = useState(null);
 
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Register New Vendor">
-                        <form onSubmit={handleAddVendor} className="space-y-4">
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Vendor Name</label><input required name="name" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Category</label><input required name="category" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Contact Email</label><input required type="email" name="contact" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Terms</label>
-                                <select name="terms" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm outline-none focus:ring-2 focus:ring-primary">
-                                    <option>Net 15</option>
-                                    <option>Net 30</option>
-                                    <option>Net 60</option>
-                                    <option>Due on Receipt</option>
-                                </select>
-                            </div>
-                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition shadow-sm mt-2">Save Vendor</button>
-                        </form>
-                    </Modal>
+  function loadQueue() {
+    const sel = {}; db.orderQueue.forEach(id => sel[id] = true);
+    setPickItems(sel);
+  }
+  function createRFQ() {
+    const itemIds = Object.keys(pickItems).filter(k=>pickItems[k]);
+    const vendorIds = Object.keys(pickVendors).filter(k=>pickVendors[k]);
+    if (itemIds.length===0) return alert('Select at least one item.');
+    if (vendorIds.length===0) return alert('Select at least one vendor to invite.');
+    update(d => {
+      const n = d.counters.rfq;
+      d.rfqs.unshift({ id: uid(), number: 'RFQ-'+n, createdDate: todayISO(), itemIds, vendorIds, status: 'open',
+        bids: {}, // key `${itemId}|${vendorId}` -> price
+        qtyByItem: Object.fromEntries(itemIds.map(id => { const it = itemById(d, id); return [id, it && it.reorderQty>0 ? it.reorderQty : Math.max(1,num(it?.reorderPoint)*2-num(it?.qty))]; })),
+        awardedByItem: {} });
+      d.counters.rfq += 1;
+      d.orderQueue = d.orderQueue.filter(id => !itemIds.includes(id));
+    });
+    setBuilding(false); setPickItems({}); setPickVendors({});
+  }
+
+  const rfq = db.rfqs.find(r=>r.id===openId);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <h1 className="text-2xl font-bold text-navy">Bids / RFQ</h1>
+        <Btn kind="primary" onClick={()=>setBuilding(true)}>+ New RFQ</Btn>
+      </div>
+
+      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
+            <tr><th className="p-2 text-left">RFQ#</th><th className="p-2 text-left">Created</th><th className="p-2 text-left">Items</th><th className="p-2 text-left">Vendors invited</th><th className="p-2 text-left">Status</th><th className="p-2"></th></tr>
+          </thead>
+          <tbody>
+            {db.rfqs.map(r => (
+              <tr key={r.id} className="border-t border-navy/5">
+                <td className="p-2 font-medium">{r.number}</td>
+                <td className="p-2 text-navy/60">{r.createdDate}</td>
+                <td className="p-2 text-center">{r.itemIds.length}</td>
+                <td className="p-2 text-center">{r.vendorIds.length}</td>
+                <td className="p-2">{statusBadge(r.status)}</td>
+                <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setOpenId(r.id)}>Open</Btn></td>
+              </tr>
+            ))}
+            {db.rfqs.length===0 && <tr><td colSpan="6" className="p-6 text-center text-navy/40">No RFQs yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {building && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={()=>setBuilding(false)}>
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-navy mb-3">New request for bids</h3>
+            {db.orderQueue.length>0 && <Btn kind="brass" className="mb-3" onClick={loadQueue}>Select the {db.orderQueue.length} queued item(s)</Btn>}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="font-semibold text-sm mb-1">Items</div>
+                <div className="max-h-64 overflow-y-auto border border-navy/10 rounded p-2 space-y-1">
+                  {db.items.map(it => (
+                    <label key={it.id} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={!!pickItems[it.id]} onChange={e=>setPickItems({...pickItems,[it.id]:e.target.checked})} />
+                      {it.name} {lowStock(it) && <span className="text-[10px] bg-alert text-white px-1 rounded">LOW</span>}
+                    </label>
+                  ))}
                 </div>
-            );
-        };
+              </div>
+              <div>
+                <div className="font-semibold text-sm mb-1">Invite vendors</div>
+                <div className="max-h-64 overflow-y-auto border border-navy/10 rounded p-2 space-y-1">
+                  {db.vendors.map(v => (
+                    <label key={v.id} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={!!pickVendors[v.id]} onChange={e=>setPickVendors({...pickVendors,[v.id]:e.target.checked})} />
+                      {v.name}{v.favorite?' ★':''}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Btn kind="ghost" onClick={()=>setBuilding(false)}>Cancel</Btn>
+              <Btn kind="primary" onClick={createRFQ}>Send RFQ</Btn>
+            </div>
+          </div>
+        </div>
+      )}
 
-        const CatalogView = ({ catalog, setCatalog }) => {
-            const { addToast } = useToast();
-            const [searchTerm, setSearchTerm] = useState("");
-            const [isModalOpen, setIsModalOpen] = useState(false);
+      {rfq && <RFQDetail db={db} update={update} rfq={rfq} onClose={()=>setOpenId(null)} />}
+    </div>
+  );
+}
 
-            const handleAdd = (e) => {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                setCatalog([...catalog, { id: generateId('c'), sku: fd.get('sku'), name: fd.get('name'), category: fd.get('category'), stdPrice: parseFloat(fd.get('stdPrice')) }]);
-                setIsModalOpen(false);
-                addToast('Catalog item added successfully!', 'success');
-            };
+function RFQDetail({ db, update, rfq, onClose }) {
+  function setBid(itemId, vendorId, price) {
+    update(d => {
+      const r = d.rfqs.find(x=>x.id===rfq.id);
+      r.bids[itemId+'|'+vendorId] = price;
+    });
+  }
+  function setQty(itemId, qty) {
+    update(d => { d.rfqs.find(x=>x.id===rfq.id).qtyByItem[itemId] = qty; });
+  }
+  function award(itemId, vendorId) {
+    const price = rfq.bids[itemId+'|'+vendorId];
+    if (price === undefined || price === '') return alert('Enter a bid price for that vendor first.');
+    const qty = num(rfq.qtyByItem[itemId]) || 1;
+    update(d => {
+      const r = d.rfqs.find(x=>x.id===rfq.id);
+      r.awardedByItem[itemId] = vendorId;
+      let po = d.pos.find(p => p.status==='draft' && p.vendorId===vendorId && p.rfqId===r.id);
+      if (!po) {
+        const n = d.counters.po;
+        po = { id: uid(), number: 'PO-'+n, vendorId, status: 'draft', createdDate: todayISO(), lines: [], payments: [], notes: 'Awarded from ' + r.number, rfqId: r.id };
+        d.pos.push(po); d.counters.po += 1;
+      }
+      const existing = po.lines.find(l=>l.itemId===itemId);
+      if (existing) { existing.qtyOrdered = qty; existing.cost = num(price); }
+      else po.lines.push({ itemId, qtyOrdered: qty, qtyReceived: 0, cost: num(price) });
+      const allAwarded = r.itemIds.every(id => r.awardedByItem[id]);
+      r.status = allAwarded ? 'awarded' : 'open';
+    });
+  }
 
-            return (
-                <div className="fade-in space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Item Master Catalog</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Standardized SKUs and reference pricing for procurement requisitions.</p>
-                        </div>
-                        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
-                            <i className="fa-solid fa-plus"></i> Add Item
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="font-bold text-lg text-navy">{rfq.number} {statusBadge(rfq.status)}</h3>
+          <button onClick={onClose} className="text-navy/40 text-xl leading-none">×</button>
+        </div>
+        <p className="text-xs text-navy/50 mb-3">Enter each vendor's quoted price per unit as bids come in, set the order quantity, then award the item to the best vendor. Awarding creates or updates a draft PO for that vendor.</p>
+        <table className="w-full text-sm">
+          <thead className="text-navy/50 text-xs uppercase">
+            <tr>
+              <th className="text-left py-1">Item</th>
+              <th>Order qty</th>
+              {rfq.vendorIds.map(vid => <th key={vid}>{vendorName(db, vid)}</th>)}
+              <th>Awarded</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rfq.itemIds.map(itemId => {
+              const it = itemById(db, itemId);
+              const awardedVendor = rfq.awardedByItem[itemId];
+              return (
+                <tr key={itemId} className="border-t border-navy/5">
+                  <td className="py-1.5">{it?it.name:'—'}</td>
+                  <td className="text-center"><TInput type="number" className="w-16 text-right" value={rfq.qtyByItem[itemId]} onChange={e=>setQty(itemId, e.target.value)} /></td>
+                  {rfq.vendorIds.map(vid => (
+                    <td key={vid} className="text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <TInput type="number" step="0.01" className="w-20 text-right" value={rfq.bids[itemId+'|'+vid] ?? ''} onChange={e=>setBid(itemId, vid, e.target.value)} placeholder="bid" />
+                        <button onClick={()=>award(itemId, vid)} className={"text-[10px] px-1.5 py-0.5 rounded " + (awardedVendor===vid ? 'bg-ok text-white' : 'bg-navy/10 text-navy/60 hover:bg-brass hover:text-white')}>
+                          {awardedVendor===vid ? 'Awarded ✓' : 'Award'}
                         </button>
-                    </div>
+                      </div>
+                    </td>
+                  ))}
+                  <td className="text-center text-xs text-navy/50">{awardedVendor ? vendorName(db, awardedVendor) : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
-                    <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50">
-                            <div className="relative w-80">
-                                <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                                <input type="text" placeholder="Search SKU or name..." className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                            </div>
-                        </div>
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th className="p-4">SKU Code</th>
-                                    <th className="p-4">Item Name</th>
-                                    <th className="p-4">Category</th>
-                                    <th className="p-4">Standard Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {catalog.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.sku.toLowerCase().includes(searchTerm.toLowerCase())).map(c => (
-                                    <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                        <td className="p-4 font-mono text-xs text-slate-500">{c.sku}</td>
-                                        <td className="p-4 font-bold text-slate-900">{c.name}</td>
-                                        <td className="p-4 text-slate-600">{c.category}</td>
-                                        <td className="p-4 font-semibold text-slate-800">${c.stdPrice.toLocaleString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+// ---------------- PAYMENTS / AP ----------------
+function Payments({ db }) {
+  const withBalance = db.pos.map(p => ({ po: p, t: poTotals(p) })).filter(x => x.t.received > 0);
+  const totalOutstanding = withBalance.reduce((s,x)=> s + Math.max(0,x.t.balance), 0);
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold text-navy">Payments &amp; AP overview</h1>
+      <Stat label="Total outstanding to vendors" value={fmt(totalOutstanding)} tone={totalOutstanding?'alert':'ok'} />
+      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
+            <tr><th className="p-2 text-left">PO#</th><th className="p-2 text-left">Vendor</th><th className="p-2 text-left">Terms</th><th className="p-2 text-left">Status</th><th className="p-2 text-right">Owed (received)</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Balance</th></tr>
+          </thead>
+          <tbody>
+            {withBalance.map(({po,t}) => {
+              const v = db.vendors.find(x=>x.id===po.vendorId);
+              return (
+                <tr key={po.id} className="border-t border-navy/5">
+                  <td className="p-2 font-medium">{po.number}</td>
+                  <td className="p-2">{v?v.name:'—'}</td>
+                  <td className="p-2 text-navy/60">{v?v.terms:''}</td>
+                  <td className="p-2">{statusBadge(po.status)}</td>
+                  <td className="p-2 text-right mono">{fmt(t.received)}</td>
+                  <td className="p-2 text-right mono text-ok">{fmt(t.paid)}</td>
+                  <td className={"p-2 text-right mono font-semibold " + (t.balance>0?'text-alert':'text-ok')}>{fmt(t.balance)}</td>
+                </tr>
+              );
+            })}
+            {withBalance.length===0 && <tr><td colSpan="7" className="p-6 text-center text-navy/40">Nothing received yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Master Catalog Item">
-                        <form onSubmit={handleAdd} className="space-y-4">
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">SKU Code</label><input required name="sku" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" placeholder="e.g., HW-ROU-09" /></div>
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Item Name</label><input required name="name" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Category</label><input required name="category" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-                            <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Standard Price ($)</label><input required type="number" step="0.01" name="stdPrice" className="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-indigo-600 transition shadow-sm mt-2">Save Catalog Item</button>
-                        </form>
-                    </Modal>
-                </div>
-            );
-        };
-
-        // --- MAIN APP LAYOUT ---
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [vendors, setVendors] = useLocalStorage('procurify_vendors', seedVendors);
-            const [catalog, setCatalog] = useLocalStorage('procurify_catalog', seedCatalog);
-            const [inventory, setInventory] = useLocalStorage('procurify_inventory', seedInventory);
-            const [pos, setPOs] = useLocalStorage('procurify_pos', seedPOs);
-            const [bids, setBids] = useLocalStorage('procurify_bids', seedBids);
-
-            const pendingCount = pos.filter(p => p.status === 'PENDING APPROVAL').length;
-            const lowStockCount = inventory.filter(i => i.stock <= i.minStock).length;
-
-            const tabs = [
-                { id: 'dashboard', label: 'Intelligence', icon: 'fa-chart-pie' },
-                { id: 'pos', label: 'Orders & Receiving', icon: 'fa-file-invoice-dollar', badge: pendingCount },
-                { id: 'inventory', label: 'Inventory & Reorders', icon: 'fa-boxes-stacked', badge: lowStockCount },
-                { id: 'sourcing', label: 'Sourcing Matrix', icon: 'fa-scale-balanced' },
-                { id: 'vendors', label: 'Vendor Directory', icon: 'fa-address-book' },
-                { id: 'catalog', label: 'Item Catalog', icon: 'fa-box-open' }
-            ];
-
-            return (
-                <div className="flex h-screen overflow-hidden bg-slate-100">
-                    {/* Modern Sidebar */}
-                    <aside className="w-72 bg-secondary text-slate-300 flex flex-col shadow-2xl z-20">
-                        <div className="p-6 flex items-center gap-3 text-white font-bold text-xl tracking-tight border-b border-slate-800">
-                            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
-                                <i className="fa-solid fa-cube text-white text-sm"></i>
-                            </div>
-                            Procurify <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-md font-mono">OS</span>
-                        </div>
-                        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-                            {tabs.map(tab => (
-                                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/25' : 'hover:bg-slate-800/80 hover:text-white text-slate-400'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <i className={`fa-solid ${tab.icon} w-5 text-center text-base`}></i>
-                                        <span>{tab.label}</span>
-                                    </div>
-                                    {tab.badge > 0 && (
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === tab.id ? 'bg-white text-primary' : 'bg-rose-500 text-white'}`}>
-                                            {tab.badge}
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="p-4 border-t border-slate-800 text-xs text-slate-500 flex items-center justify-between">
-                            <span>Enterprise Edition</span>
-                            <span className="font-mono text-emerald-400">● Live</span>
-                        </div>
-                    </aside>
-
-                    {/* Main Content Area */}
-                    <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-xs z-10">
-                            <div className="flex items-center gap-2 text-sm text-slate-400 font-medium">
-                                Workspace <i className="fa-solid fa-chevron-right text-xs text-slate-300"></i> 
-                                <span className="font-bold text-slate-800 capitalize">{activeTab.replace('-', ' ')}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <button className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition relative">
-                                    <i className="fa-regular fa-bell"></i>
-                                    {(pendingCount > 0 || lowStockCount > 0) && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>}
-                                </button>
-                                <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white font-bold text-sm flex items-center justify-center shadow-md shadow-indigo-500/20">
-                                        JD
-                                    </div>
-                                    <div className="hidden md:block text-left">
-                                        <p className="text-sm font-bold text-slate-800 leading-tight">Jane Doe</p>
-                                        <p className="text-xs text-slate-400 leading-tight mt-0.5">Supply Chain Lead</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </header>
-                        <div className="flex-1 overflow-y-auto p-8">
-                            {activeTab === 'dashboard' && <DashboardView pos={pos} vendors={vendors} inventory={inventory} />}
-                            {activeTab === 'pos' && <POsView pos={pos} setPOs={setPOs} vendors={vendors} catalog={catalog} setVendors={setVendors} inventory={inventory} setInventory={setInventory} />}
-                            {activeTab === 'inventory' && <InventoryView inventory={inventory} setInventory={setInventory} setPOs={setPOs} pos={pos} vendors={vendors} />}
-                            {activeTab === 'sourcing' && <SourcingView bids={bids} setBids={setBids} pos={pos} setPOs={setPOs} />}
-                            {activeTab === 'vendors' && <VendorsView vendors={vendors} setVendors={setVendors} />}
-                            {activeTab === 'catalog' && <CatalogView catalog={catalog} setCatalog={setCatalog} />}
-                        </div>
-                    </main>
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ToastProvider><App /></ToastProvider>);
-    </script>
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
 </body>
 </html>
