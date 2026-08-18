@@ -1,1258 +1,288 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>StoreOps — Inventory &amp; Purchasing</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  // Guarded: if the Tailwind CDN script is blocked by the network/preview sandbox,
-  // this skips quietly instead of throwing "tailwind is not defined".
-  if (typeof tailwind !== 'undefined') {
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            ink: '#12202b',
-            navy: '#16324a',
-            navy2: '#1e4258',
-            brass: '#b8863d',
-            brassLt: '#e8d5b0',
-            alert: '#b3401f',
-            ok: '#2f6b4f'
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Barcode CSV Formatter</title>
+    <!-- PapaParse CDN for robust CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #0f172a;
+            --border: #cbd5e1;
         }
-      }
-    };
-  } else {
-    console.warn('Tailwind CDN did not load — check your network connection. The app will still run but styling will be minimal.');
-  }
-</script>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
-  ::-webkit-scrollbar { height: 10px; width: 10px; }
-  ::-webkit-scrollbar-thumb { background: #cbd5c5; border-radius: 6px; }
-  table { border-collapse: collapse; }
-  .mono { font-variant-numeric: tabular-nums; }
-</style>
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card);
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        input[type="file"], input[type="number"], select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+            background-color: #fff;
+        }
+
+        .row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .row .form-group {
+            flex: 1;
+        }
+
+        .mapping-section {
+            display: none;
+            background: #f1f5f9;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .preview-container {
+            margin-top: 24px;
+            display: none;
+        }
+
+        .preview-container h3 {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        pre {
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 180px;
+            margin: 0;
+        }
+    </style>
 </head>
-<body class="bg-[#f3f1ea] text-ink">
-<div id="root"></div>
+<body>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo, useRef } = React;
+<div class="container">
+    <h1>Barcode CSV Formatter</h1>
+    <p class="subtitle">Upload any CSV file. The app reads your header row to detect columns, reorders them (UPC first, Name second), pads leading zeros, and adds strict double quotes for printing software.</p>
 
-// ---------- storage ----------
-const STORAGE_KEY = 'storeops_v1';
+    <div class="form-group">
+        <label for="csvFileInput">Upload CSV File</label>
+        <input type="file" id="csvFileInput" accept=".csv" onchange="loadHeaders()">
+    </div>
 
-function loadDB() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) { console.error('load failed', e); }
-  return {
-    items: [],
-    vendors: [],
-    salespeople: [],
-    sales: [],
-    pos: [],
-    rfqs: [],
-    orderQueue: [],
-    reconciliations: [],
-    counters: { po: 1000, rfq: 1000 }
-  };
-}
-
-// ---------- helpers ----------
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const fmt = (n) => '$' + (Number(n) || 0).toFixed(2);
-const num = (v) => (v === '' || v === null || isNaN(v)) ? 0 : Number(v);
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const lowStock = (it) => num(it.qty) <= num(it.reorderPoint);
-
-function vendorName(db, id) {
-  const v = db.vendors.find(v => v.id === id);
-  return v ? v.name : '— none —';
-}
-function itemById(db, id) { return db.items.find(i => i.id === id); }
-
-function poTotals(po) {
-  const ordered = po.lines.reduce((s, l) => s + num(l.qtyOrdered) * num(l.cost), 0);
-  const received = po.lines.reduce((s, l) => s + num(l.qtyReceived) * num(l.cost), 0);
-  const paid = (po.payments || []).reduce((s, p) => s + num(p.amount), 0);
-  const balance = received - paid;
-  return { ordered, received, paid, balance };
-}
-
-function statusBadge(status) {
-  const map = {
-    draft: 'bg-gray-200 text-gray-700',
-    bidding: 'bg-purple-100 text-purple-700',
-    sent: 'bg-blue-100 text-blue-700',
-    partial: 'bg-amber-100 text-amber-800',
-    received: 'bg-emerald-100 text-emerald-700',
-    closed: 'bg-gray-300 text-gray-600',
-    open: 'bg-blue-100 text-blue-700',
-    awarded: 'bg-emerald-100 text-emerald-700'
-  };
-  return <span className={"px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide " + (map[status]||'bg-gray-200 text-gray-700')}>{status}</span>;
-}
-
-// ---------- small UI atoms ----------
-function Field({ label, children, className }) {
-  return (
-    <label className={"flex flex-col gap-1 text-xs font-semibold text-navy/70 " + (className||'')}>
-      {label}
-      {children}
-    </label>
-  );
-}
-function TInput(props) {
-  return <input {...props} className={"border border-navy/20 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brass " + (props.className||'')} />;
-}
-function TSelect(props) {
-  return <select {...props} className={"border border-navy/20 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brass " + (props.className||'')}>{props.children}</select>;
-}
-function Btn({ children, onClick, kind, disabled, className }) {
-  const kinds = {
-    primary: 'bg-navy text-white hover:bg-navy2',
-    brass: 'bg-brass text-white hover:bg-[#a3752f]',
-    ghost: 'bg-white border border-navy/25 text-navy hover:bg-navy/5',
-    danger: 'bg-alert text-white hover:bg-[#932f16]',
-    ok: 'bg-ok text-white hover:bg-[#255a41]'
-  };
-  return (
-    <button disabled={disabled} onClick={onClick}
-      className={"px-3 py-1.5 rounded text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed " + (kinds[kind]||kinds.ghost) + " " + (className||'')}>
-      {children}
-    </button>
-  );
-}
-function Card({ title, right, children, className }) {
-  return (
-    <div className={"bg-white rounded-lg border border-navy/10 shadow-sm " + (className||'')}>
-      {(title || right) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-navy/10">
-          <h3 className="font-bold text-navy">{title}</h3>
-          <div>{right}</div>
+    <!-- Mapping Options (Appears automatically when file is loaded) -->
+    <div class="mapping-section" id="mappingSection">
+        <div class="row">
+            <div class="form-group">
+                <label for="upcSelect">Base UPC Column:</label>
+                <select id="upcSelect"></select>
+            </div>
+            <div class="form-group">
+                <label for="nameSelect">Name Column:</label>
+                <select id="nameSelect"></select>
+            </div>
         </div>
-      )}
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}
-function Stat({ label, value, tone }) {
-  const tones = { alert: 'text-alert', ok: 'text-ok', navy: 'text-navy', brass: 'text-brass' };
-  return (
-    <div className="bg-white rounded-lg border border-navy/10 shadow-sm p-4 flex-1 min-w-[140px]">
-      <div className="text-xs uppercase tracking-wide font-semibold text-navy/50">{label}</div>
-      <div className={"text-2xl font-bold mt-1 " + (tones[tone]||'text-navy')}>{value}</div>
-    </div>
-  );
-}
-
-// ================= APP =================
-function App() {
-  const [db, setDb] = useState(loadDB);
-  const [tab, setTab] = useState('dashboard');
-  const fileRef = useRef(null);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  }, [db]);
-
-  const update = (fn) => setDb(prev => { const next = JSON.parse(JSON.stringify(prev)); fn(next); return next; });
-
-  const lowItems = useMemo(() => db.items.filter(lowStock), [db.items]);
-  const openPOs = useMemo(() => db.pos.filter(p => p.status !== 'closed'), [db.pos]);
-  const apOutstanding = useMemo(() => db.pos.reduce((s, p) => s + Math.max(0, poTotals(p).balance), 0), [db.pos]);
-
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'storeops-backup-' + todayISO() + '.json';
-    a.click(); URL.revokeObjectURL(url);
-  }
-  function importJSON(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        if (!parsed.items || !parsed.vendors) throw new Error('not a valid backup');
-        setDb(parsed);
-        alert('Backup restored.');
-      } catch (err) { alert('Could not read that file: ' + err.message); }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  }
-
-  const NAV = [
-    ['dashboard', 'Dashboard'],
-    ['inventory', 'Inventory'],
-    ['reconcile', 'Reconcile'],
-    ['sales', 'Sales'],
-    ['purchasing', 'Purchasing'],
-    ['rfq', 'Bids / RFQ'],
-    ['vendors', 'Vendors'],
-    ['payments', 'Payments'],
-  ];
-
-  return (
-    <div className="min-h-screen flex">
-      <aside className="w-56 shrink-0 bg-navy text-white/90 flex flex-col">
-        <div className="px-4 py-5 border-b border-white/10">
-          <div className="text-lg font-bold text-white">StoreOps</div>
-          <div className="text-[11px] text-white/50">inventory &amp; purchasing</div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="upcLength">Target UPC Length (Digits):</label>
+            <input type="number" id="upcLength" value="12" min="1" max="20">
         </div>
-        <nav className="flex-1 py-3">
-          {NAV.map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)}
-              className={"w-full text-left px-4 py-2 text-sm font-medium flex items-center justify-between " + (tab===id ? 'bg-white/10 border-l-4 border-brass text-white' : 'border-l-4 border-transparent text-white/70 hover:bg-white/5')}>
-              <span>{label}</span>
-              {id === 'inventory' && lowItems.length > 0 && <span className="bg-alert text-white text-[10px] px-1.5 py-0.5 rounded-full">{lowItems.length}</span>}
-              {id === 'purchasing' && openPOs.length > 0 && <span className="bg-brass text-white text-[10px] px-1.5 py-0.5 rounded-full">{openPOs.length}</span>}
-              {id === 'sales' && db.orderQueue.length > 0 === false ? null : null}
-            </button>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-white/10 space-y-1.5">
-          <button onClick={exportJSON} className="w-full text-xs px-2 py-1.5 rounded bg-white/10 hover:bg-white/20">⬇ Export backup</button>
-          <button onClick={() => fileRef.current.click()} className="w-full text-xs px-2 py-1.5 rounded bg-white/10 hover:bg-white/20">⬆ Import backup</button>
-          <input type="file" ref={fileRef} accept="application/json" className="hidden" onChange={importJSON} />
-          <div className="text-[10px] text-white/40 pt-1">Data stays in this browser only.</div>
-        </div>
-      </aside>
-
-      <main className="flex-1 p-6 overflow-x-auto">
-        {tab === 'dashboard' && <Dashboard db={db} lowItems={lowItems} openPOs={openPOs} apOutstanding={apOutstanding} goto={setTab} />}
-        {tab === 'inventory' && <Inventory db={db} update={update} />}
-        {tab === 'reconcile' && <Reconcile db={db} update={update} />}
-        {tab === 'sales' && <Sales db={db} update={update} />}
-        {tab === 'purchasing' && <Purchasing db={db} update={update} />}
-        {tab === 'rfq' && <RFQ db={db} update={update} />}
-        {tab === 'vendors' && <Vendors db={db} update={update} />}
-        {tab === 'payments' && <Payments db={db} update={update} />}
-      </main>
     </div>
-  );
-}
 
-// ---------------- DASHBOARD ----------------
-function Dashboard({ db, lowItems, openPOs, apOutstanding, goto }) {
-  const salesTotal = db.sales.reduce((s, sale) => s + sale.total, 0);
-  const salesToday = db.sales.filter(s => s.date === todayISO()).reduce((s, sale) => s + sale.total, 0);
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
-      <div className="flex flex-wrap gap-4">
-        <Stat label="Items tracked" value={db.items.length} />
-        <Stat label="Low / reorder flagged" value={lowItems.length} tone={lowItems.length ? 'alert' : 'ok'} />
-        <Stat label="Open purchase orders" value={openPOs.length} tone="brass" />
-        <Stat label="AP outstanding" value={fmt(apOutstanding)} tone={apOutstanding ? 'alert' : 'ok'} />
-        <Stat label="Sales today" value={fmt(salesToday)} tone="ok" />
-        <Stat label="Sales all-time" value={fmt(salesTotal)} />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="Items needing reorder" right={<Btn kind="ghost" onClick={()=>goto('inventory')}>Open inventory →</Btn>}>
-          {lowItems.length === 0 ? <p className="text-sm text-navy/50">Nothing flagged. Stock looks healthy.</p> : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-navy/50 text-xs uppercase"><th className="py-1">Item</th><th>On hand</th><th>Reorder pt</th><th>Vendor</th></tr></thead>
-              <tbody>
-                {lowItems.slice(0,10).map(it => (
-                  <tr key={it.id} className="border-t border-navy/5">
-                    <td className="py-1.5 font-medium">{it.name}</td>
-                    <td className="text-alert font-bold">{it.qty}</td>
-                    <td>{it.reorderPoint}</td>
-                    <td className="text-navy/60">{vendorName(db, it.currentVendorId)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {lowItems.length > 10 && <p className="text-xs text-navy/40 mt-2">+{lowItems.length-10} more…</p>}
-        </Card>
-        <Card title="Open purchase orders" right={<Btn kind="ghost" onClick={()=>goto('purchasing')}>Open purchasing →</Btn>}>
-          {openPOs.length === 0 ? <p className="text-sm text-navy/50">No open purchase orders.</p> : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-navy/50 text-xs uppercase"><th className="py-1">PO#</th><th>Vendor</th><th>Status</th><th>Balance</th></tr></thead>
-              <tbody>
-                {openPOs.map(po => {
-                  const t = poTotals(po);
-                  return (
-                    <tr key={po.id} className="border-t border-navy/5">
-                      <td className="py-1.5 font-medium">{po.number}</td>
-                      <td>{vendorName(db, po.vendorId)}</td>
-                      <td>{statusBadge(po.status)}</td>
-                      <td className="mono">{fmt(t.balance)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </Card>
-      </div>
+    <button id="processBtn" onclick="processAndDownload()" disabled>Format & Download CSV</button>
+
+    <div class="preview-container" id="previewContainer">
+        <h3>Output Preview:</h3>
+        <pre id="previewText"></pre>
     </div>
-  );
-}
+</div>
 
-// ---------------- INVENTORY ----------------
-const emptyItem = () => ({
-  id: uid(), name: '', brand: '', category: '', upc: '', bulkUpc: '',
-  qty: 0, reorderPoint: 0, reorderQty: 0, cost: 0, sellPrice: 0,
-  currentVendorId: '', favoriteVendorId: ''
-});
+<script>
+    let rawCsvData = [];
 
-function Inventory({ db, update }) {
-  const [editing, setEditing] = useState(null); // item object being edited, or null
-  const [query, setQuery] = useState('');
-  const [catFilter, setCatFilter] = useState('');
-  const [onlyLow, setOnlyLow] = useState(false);
-  const [selected, setSelected] = useState({});
+    // Step 1: Read CSV headers and auto-select matching columns
+    function loadHeaders() {
+        const fileInput = document.getElementById('csvFileInput');
+        if (!fileInput.files.length) return;
 
-  const categories = useMemo(() => [...new Set(db.items.map(i => i.category).filter(Boolean))].sort(), [db.items]);
+        Papa.parse(fileInput.files[0], {
+            skipEmptyLines: true,
+            complete: function(results) {
+                rawCsvData = results.data;
+                if (!rawCsvData || rawCsvData.length < 1) {
+                    alert('The uploaded CSV appears to be empty.');
+                    return;
+                }
 
-  const filtered = useMemo(() => db.items.filter(it => {
-    if (onlyLow && !lowStock(it)) return false;
-    if (catFilter && it.category !== catFilter) return false;
-    if (query) {
-      const q = query.toLowerCase();
-      if (!(it.name.toLowerCase().includes(q) || it.upc.includes(q) || it.bulkUpc.includes(q) || it.brand.toLowerCase().includes(q))) return false;
+                const headers = rawCsvData[0];
+                const upcSelect = document.getElementById('upcSelect');
+                const nameSelect = document.getElementById('nameSelect');
+
+                // Clear previous options
+                upcSelect.innerHTML = '';
+                nameSelect.innerHTML = '';
+
+                // Populate Dropdowns with header choices
+                headers.forEach((header, index) => {
+                    const cleanHeader = (header || `Column ${index + 1}`).trim();
+                    upcSelect.options.add(new Option(cleanHeader, index));
+                    nameSelect.options.add(new Option(cleanHeader, index));
+                });
+
+                // Auto-detect best match using regex
+                headers.forEach((header, index) => {
+                    const h = String(header).toLowerCase();
+                    if (/upc|barcode|code|sku/i.test(h)) {
+                        upcSelect.value = index;
+                    }
+                    if (/name|title|desc|item|product/i.test(h)) {
+                        nameSelect.value = index;
+                    }
+                });
+
+                // Show settings & enable button
+                document.getElementById('mappingSection').style.display = 'block';
+                document.getElementById('processBtn').disabled = false;
+            },
+            error: function(err) {
+                alert('Error parsing CSV: ' + err.message);
+            }
+        });
     }
-    return true;
-  }), [db.items, query, catFilter, onlyLow]);
 
-  function saveItem(item) {
-    update(d => {
-      const idx = d.items.findIndex(i => i.id === item.id);
-      if (idx >= 0) d.items[idx] = item; else d.items.push(item);
-    });
-    setEditing(null);
-  }
-  function deleteItem(id) {
-    if (!confirm('Delete this item permanently?')) return;
-    update(d => { d.items = d.items.filter(i => i.id !== id); });
-  }
-  function toggleSel(id) { setSelected(s => ({ ...s, [id]: !s[id] })); }
-  const selectedIds = Object.keys(selected).filter(id => selected[id]);
+    // Step 2: Extract selected columns, pad zeros, wrap quotes, and reorder
+    function processAndDownload() {
+        if (!rawCsvData.length) return;
 
-  function addToQueue() {
-    update(d => { d.orderQueue = [...new Set([...d.orderQueue, ...selectedIds])]; });
-    setSelected({});
-    alert(selectedIds.length + ' item(s) added to the order queue. Build a PO from Purchasing.');
-  }
+        const upcIdx = parseInt(document.getElementById('upcSelect').value, 10);
+        const nameIdx = parseInt(document.getElementById('nameSelect').value, 10);
+        const upcLength = parseInt(document.getElementById('upcLength').value, 10);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-navy">Inventory ({db.items.length})</h1>
-        <div className="flex gap-2">
-          {selectedIds.length > 0 && <Btn kind="brass" onClick={addToQueue}>Queue {selectedIds.length} for order</Btn>}
-          <Btn kind="primary" onClick={() => setEditing(emptyItem())}>+ Add item</Btn>
-        </div>
-      </div>
+        let outputRows = [];
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <TInput placeholder="Search name / brand / UPC" value={query} onChange={e=>setQuery(e.target.value)} className="w-64" />
-        <TSelect value={catFilter} onChange={e=>setCatFilter(e.target.value)}>
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </TSelect>
-        <label className="flex items-center gap-1.5 text-sm font-medium text-navy/70">
-          <input type="checkbox" checked={onlyLow} onChange={e=>setOnlyLow(e.target.checked)} /> Low stock only
-        </label>
-        {db.orderQueue.length > 0 && <span className="text-xs bg-brassLt text-navy px-2 py-1 rounded">{db.orderQueue.length} item(s) already queued for order</span>}
-      </div>
+        // Dynamic Header Row ("UPC","Name")
+        const origUpcHeader = (rawCsvData[0][upcIdx] || 'UPC').trim();
+        const origNameHeader = (rawCsvData[0][nameIdx] || 'Name').trim();
+        outputRows.push(`"${origUpcHeader}","${origNameHeader}"`);
 
-      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
-            <tr>
-              <th className="p-2"></th>
-              <th className="p-2 text-left">Name</th>
-              <th className="p-2 text-left">Brand</th>
-              <th className="p-2 text-left">Category</th>
-              <th className="p-2 text-left">UPC</th>
-              <th className="p-2 text-right">On hand</th>
-              <th className="p-2 text-right">Reorder pt</th>
-              <th className="p-2 text-right">Cost</th>
-              <th className="p-2 text-right">Sell</th>
-              <th className="p-2 text-left">Vendor</th>
-              <th className="p-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(it => (
-              <tr key={it.id} className={"border-t border-navy/5 " + (lowStock(it) ? 'bg-alert/5' : '')}>
-                <td className="p-2"><input type="checkbox" checked={!!selected[it.id]} onChange={()=>toggleSel(it.id)} /></td>
-                <td className="p-2 font-medium">{it.name} {lowStock(it) && <span className="ml-1 text-[10px] bg-alert text-white px-1.5 py-0.5 rounded-full align-middle">LOW</span>}</td>
-                <td className="p-2 text-navy/60">{it.brand}</td>
-                <td className="p-2 text-navy/60">{it.category}</td>
-                <td className="p-2 text-navy/60 mono">{it.upc}</td>
-                <td className={"p-2 text-right mono font-semibold " + (lowStock(it) ? 'text-alert' : '')}>{it.qty}</td>
-                <td className="p-2 text-right mono text-navy/60">{it.reorderPoint}</td>
-                <td className="p-2 text-right mono">{fmt(it.cost)}</td>
-                <td className="p-2 text-right mono">{fmt(it.sellPrice)}</td>
-                <td className="p-2 text-navy/60">{vendorName(db, it.currentVendorId)}</td>
-                <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setEditing(it)}>Edit</Btn></td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan="11" className="p-6 text-center text-navy/40">No items match.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+        // Process Data Rows
+        for (let i = 1; i < rawCsvData.length; i++) {
+            const row = rawCsvData[i];
+            
+            // Extract raw values safely
+            let rawName = (row[nameIdx] !== undefined ? String(row[nameIdx]) : '').trim();
+            let rawUpc = (row[upcIdx] !== undefined ? String(row[upcIdx]) : '').trim();
 
-      {editing && <ItemEditor db={db} item={editing} onSave={saveItem} onCancel={()=>setEditing(null)} onDelete={deleteItem} />}
-    </div>
-  );
-}
+            // Sanitize UPC (strip non-digits)
+            let digitsOnly = rawUpc.replace(/[^0-9]/g, '');
 
-function ItemEditor({ db, item, onSave, onCancel, onDelete }) {
-  const [f, setF] = useState(item);
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const setN = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const isNew = !db.items.find(i => i.id === item.id);
+            // Pad leading zeros
+            let paddedUpc = digitsOnly.padStart(upcLength, '0');
 
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onCancel}>
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
-        <h3 className="font-bold text-lg text-navy mb-3">{isNew ? 'Add item' : 'Edit item'}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Name"><TInput value={f.name} onChange={set('name')} /></Field>
-          <Field label="Brand"><TInput value={f.brand} onChange={set('brand')} /></Field>
-          <Field label="Category"><TInput value={f.category} onChange={set('category')} list="cat-list" />
-            <datalist id="cat-list">{[...new Set(db.items.map(i=>i.category).filter(Boolean))].map(c=><option key={c} value={c} />)}</datalist>
-          </Field>
-          <Field label="UPC"><TInput value={f.upc} onChange={set('upc')} /></Field>
-          <Field label="Bulk order UPC"><TInput value={f.bulkUpc} onChange={set('bulkUpc')} /></Field>
-          <Field label="On hand (qty)"><TInput type="number" value={f.qty} onChange={setN('qty')} /></Field>
-          <Field label="Reorder point"><TInput type="number" value={f.reorderPoint} onChange={setN('reorderPoint')} /></Field>
-          <Field label="Reorder qty (default order size)"><TInput type="number" value={f.reorderQty} onChange={setN('reorderQty')} /></Field>
-          <Field label="Cost (per unit)"><TInput type="number" step="0.01" value={f.cost} onChange={setN('cost')} /></Field>
-          <Field label="Sell price"><TInput type="number" step="0.01" value={f.sellPrice} onChange={setN('sellPrice')} /></Field>
-          <Field label="Current vendor">
-            <TSelect value={f.currentVendorId} onChange={set('currentVendorId')}>
-              <option value="">— none —</option>
-              {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </TSelect>
-          </Field>
-          <Field label="Favorite vendor">
-            <TSelect value={f.favoriteVendorId} onChange={set('favoriteVendorId')}>
-              <option value="">— none —</option>
-              {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </TSelect>
-          </Field>
-        </div>
-        <div className="flex justify-between items-center mt-5">
-          <div>{!isNew && <Btn kind="danger" onClick={()=>{onDelete(f.id); onCancel();}}>Delete item</Btn>}</div>
-          <div className="flex gap-2">
-            <Btn kind="ghost" onClick={onCancel}>Cancel</Btn>
-            <Btn kind="primary" onClick={()=>onSave({...f, qty:num(f.qty), reorderPoint:num(f.reorderPoint), reorderQty:num(f.reorderQty), cost:num(f.cost), sellPrice:num(f.sellPrice)})} disabled={!f.name}>Save item</Btn>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+            // Sanitize Name (escape existing double quotes by doubling them)
+            let cleanName = rawName.replace(/"/g, '""');
 
-// ---------------- RECONCILE ----------------
-function Reconcile({ db, update }) {
-  const [counts, setCounts] = useState({});
-  const touched = Object.keys(counts).filter(id => counts[id] !== '' && counts[id] !== undefined);
+            // Append standard output: "UPC","Name"
+            outputRows.push(`"${paddedUpc}","${cleanName}"`);
+        }
 
-  function applyCounts() {
-    if (touched.length === 0) return alert('Enter at least one counted quantity first.');
-    const changes = [];
-    update(d => {
-      touched.forEach(id => {
-        const it = d.items.find(i => i.id === id);
-        if (!it) return;
-        const newQty = num(counts[id]);
-        if (newQty !== num(it.qty)) changes.push({ itemId: id, name: it.name, from: it.qty, to: newQty });
-        it.qty = newQty;
-      });
-      d.reconciliations.unshift({ id: uid(), date: todayISO(), changes });
-    });
-    setCounts({});
-    alert('Applied ' + changes.length + ' count change(s).');
-  }
+        const finalCsvContent = outputRows.join('\n');
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-navy">Reconcile storeroom</h1>
-        <Btn kind="primary" onClick={applyCounts} disabled={touched.length===0}>Apply {touched.length || ''} count(s)</Btn>
-      </div>
-      <p className="text-sm text-navy/60">Walk the storeroom and enter what you actually counted. Only rows you fill in will be updated — everything else stays as-is.</p>
-      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
-            <tr>
-              <th className="p-2 text-left">Item</th>
-              <th className="p-2 text-left">UPC</th>
-              <th className="p-2 text-right">System qty</th>
-              <th className="p-2 text-right">Counted qty</th>
-              <th className="p-2 text-right">Variance</th>
-              <th className="p-2 text-right">Reorder pt</th>
-              <th className="p-2 text-left">Flag</th>
-            </tr>
-          </thead>
-          <tbody>
-            {db.items.map(it => {
-              const counted = counts[it.id];
-              const variance = counted === undefined || counted === '' ? null : num(counted) - num(it.qty);
-              const effectiveQty = counted === undefined || counted === '' ? it.qty : num(counted);
-              const isLow = effectiveQty <= num(it.reorderPoint);
-              return (
-                <tr key={it.id} className={"border-t border-navy/5 " + (isLow ? 'bg-alert/5' : '')}>
-                  <td className="p-2 font-medium">{it.name}</td>
-                  <td className="p-2 mono text-navy/60">{it.upc}</td>
-                  <td className="p-2 text-right mono">{it.qty}</td>
-                  <td className="p-2 text-right">
-                    <TInput type="number" className="w-20 text-right" value={counted === undefined ? '' : counted}
-                      onChange={e=>setCounts({...counts, [it.id]: e.target.value})} placeholder="—" />
-                  </td>
-                  <td className={"p-2 text-right mono font-semibold " + (variance>0?'text-ok':variance<0?'text-alert':'text-navy/30')}>
-                    {variance === null ? '—' : (variance>0?'+':'')+variance}
-                  </td>
-                  <td className="p-2 text-right mono text-navy/60">{it.reorderPoint}</td>
-                  <td className="p-2">{isLow && <span className="text-[10px] bg-alert text-white px-1.5 py-0.5 rounded-full">REORDER</span>}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {db.reconciliations.length > 0 && (
-        <Card title="Reconciliation history">
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {db.reconciliations.slice(0,15).map(r => (
-              <div key={r.id} className="text-sm border-b border-navy/5 pb-2">
-                <span className="font-semibold">{r.date}</span> — {r.changes.length} change(s)
-                {r.changes.length > 0 && <span className="text-navy/50"> ({r.changes.slice(0,4).map(c=>c.name+' '+c.from+'→'+c.to).join(', ')}{r.changes.length>4?'…':''})</span>}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
+        // Update Preview
+        const previewContainer = document.getElementById('previewContainer');
+        const previewText = document.getElementById('previewText');
+        previewContainer.style.display = 'block';
+        previewText.textContent = outputRows.slice(0, 6).join('\n') + (outputRows.length > 6 ? '\n...' : '');
 
-// ---------------- SALES ----------------
-function Sales({ db, update }) {
-  const [newName, setNewName] = useState('');
-  const [salespersonId, setSalespersonId] = useState('');
-  const [lines, setLines] = useState([]);
-  const [pickItem, setPickItem] = useState('');
+        // Trigger Download
+        downloadFile(finalCsvContent, 'barcode_import.csv');
+    }
 
-  function addSalesperson() {
-    if (!newName.trim()) return;
-    update(d => d.salespeople.push({ id: uid(), name: newName.trim() }));
-    setNewName('');
-  }
-  function removeSalesperson(id) {
-    if (!confirm('Remove this salesperson?')) return;
-    update(d => { d.salespeople = d.salespeople.filter(s => s.id !== id); });
-  }
-  function addLine() {
-    const it = itemById(db, pickItem);
-    if (!it) return;
-    if (lines.find(l => l.itemId === it.id)) { setPickItem(''); return; }
-    setLines([...lines, { itemId: it.id, qty: 1, price: it.sellPrice }]);
-    setPickItem('');
-  }
-  function updateLine(itemId, field, value) {
-    setLines(lines.map(l => l.itemId === itemId ? { ...l, [field]: value } : l));
-  }
-  function removeLine(itemId) { setLines(lines.filter(l => l.itemId !== itemId)); }
-  const total = lines.reduce((s,l)=> s + num(l.qty)*num(l.price), 0);
-
-  function completeSale() {
-    if (!salespersonId) return alert('Choose a salesperson.');
-    if (lines.length === 0) return alert('Add at least one item.');
-    update(d => {
-      lines.forEach(l => {
-        const it = d.items.find(i => i.id === l.itemId);
-        if (it) it.qty = Math.max(0, num(it.qty) - num(l.qty));
-      });
-      d.sales.unshift({ id: uid(), date: todayISO(), salespersonId, lines, total });
-    });
-    setLines([]);
-  }
-
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-navy">Sales</h1>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card title="Salespeople">
-          <div className="flex gap-2 mb-3">
-            <TInput placeholder="Name" value={newName} onChange={e=>setNewName(e.target.value)} className="flex-1" />
-            <Btn kind="primary" onClick={addSalesperson}>Add</Btn>
-          </div>
-          <ul className="space-y-1 text-sm">
-            {db.salespeople.map(sp => (
-              <li key={sp.id} className="flex justify-between items-center border-b border-navy/5 py-1">
-                {sp.name}
-                <button onClick={()=>removeSalesperson(sp.id)} className="text-alert text-xs">remove</button>
-              </li>
-            ))}
-            {db.salespeople.length === 0 && <p className="text-navy/40 text-sm">No salespeople yet.</p>}
-          </ul>
-        </Card>
-
-        <Card title="New sale" className="lg:col-span-2">
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <TSelect value={salespersonId} onChange={e=>setSalespersonId(e.target.value)}>
-              <option value="">Salesperson…</option>
-              {db.salespeople.map(sp => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
-            </TSelect>
-            <TSelect value={pickItem} onChange={e=>setPickItem(e.target.value)} className="flex-1 min-w-[200px]">
-              <option value="">Add item…</option>
-              {db.items.map(it => <option key={it.id} value={it.id}>{it.name} ({it.upc})</option>)}
-            </TSelect>
-            <Btn kind="ghost" onClick={addLine} disabled={!pickItem}>+ Add</Btn>
-          </div>
-          <table className="w-full text-sm mb-3">
-            <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Item</th><th>Qty</th><th>Price</th><th>Line total</th><th></th></tr></thead>
-            <tbody>
-              {lines.map(l => {
-                const it = itemById(db, l.itemId);
-                return (
-                  <tr key={l.itemId} className="border-t border-navy/5">
-                    <td className="py-1.5">{it ? it.name : '—'}</td>
-                    <td className="text-center"><TInput type="number" className="w-16 text-right" value={l.qty} onChange={e=>updateLine(l.itemId,'qty',e.target.value)} /></td>
-                    <td className="text-center"><TInput type="number" step="0.01" className="w-20 text-right" value={l.price} onChange={e=>updateLine(l.itemId,'price',e.target.value)} /></td>
-                    <td className="text-right mono">{fmt(num(l.qty)*num(l.price))}</td>
-                    <td className="text-right"><button className="text-alert text-xs" onClick={()=>removeLine(l.itemId)}>remove</button></td>
-                  </tr>
-                );
-              })}
-              {lines.length === 0 && <tr><td colSpan="5" className="text-center text-navy/40 py-3">No items added yet.</td></tr>}
-            </tbody>
-          </table>
-          <div className="flex justify-between items-center">
-            <div className="font-bold text-lg text-navy">Total: {fmt(total)}</div>
-            <Btn kind="ok" onClick={completeSale}>Complete sale</Btn>
-          </div>
-        </Card>
-      </div>
-
-      <Card title={"Sales history (" + db.sales.length + ")"}>
-        <table className="w-full text-sm">
-          <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Date</th><th className="text-left">Salesperson</th><th>Items</th><th className="text-right">Total</th></tr></thead>
-          <tbody>
-            {db.sales.slice(0,50).map(s => {
-              const sp = db.salespeople.find(p=>p.id===s.salespersonId);
-              return (
-                <tr key={s.id} className="border-t border-navy/5">
-                  <td className="py-1.5">{s.date}</td>
-                  <td>{sp ? sp.name : '—'}</td>
-                  <td className="text-center">{s.lines.length}</td>
-                  <td className="text-right mono">{fmt(s.total)}</td>
-                </tr>
-              );
-            })}
-            {db.sales.length === 0 && <tr><td colSpan="4" className="text-center text-navy/40 py-3">No sales recorded yet.</td></tr>}
-          </tbody>
-        </table>
-      </Card>
-    </div>
-  );
-}
-
-// ---------------- VENDORS ----------------
-const emptyVendor = () => ({ id: uid(), name: '', contact: '', phone: '', email: '', terms: '', favorite: false });
-
-function Vendors({ db, update }) {
-  const [editing, setEditing] = useState(null);
-  function save(v) {
-    update(d => {
-      const idx = d.vendors.findIndex(x=>x.id===v.id);
-      if (idx>=0) d.vendors[idx]=v; else d.vendors.push(v);
-    });
-    setEditing(null);
-  }
-  function del(id) {
-    if (!confirm('Delete this vendor?')) return;
-    update(d => { d.vendors = d.vendors.filter(v=>v.id!==id); });
-  }
-  function toggleFav(v) { save({...v, favorite: !v.favorite}); }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-navy">Vendors ({db.vendors.length})</h1>
-        <Btn kind="primary" onClick={()=>setEditing(emptyVendor())}>+ Add vendor</Btn>
-      </div>
-      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
-            <tr><th className="p-2"></th><th className="p-2 text-left">Name</th><th className="p-2 text-left">Contact</th><th className="p-2 text-left">Phone</th><th className="p-2 text-left">Email</th><th className="p-2 text-left">Terms</th><th className="p-2"></th></tr>
-          </thead>
-          <tbody>
-            {db.vendors.map(v => (
-              <tr key={v.id} className="border-t border-navy/5">
-                <td className="p-2"><button onClick={()=>toggleFav(v)} title="Toggle favorite">{v.favorite ? '★' : '☆'}</button></td>
-                <td className="p-2 font-medium">{v.name}</td>
-                <td className="p-2 text-navy/60">{v.contact}</td>
-                <td className="p-2 text-navy/60">{v.phone}</td>
-                <td className="p-2 text-navy/60">{v.email}</td>
-                <td className="p-2 text-navy/60">{v.terms}</td>
-                <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setEditing(v)}>Edit</Btn></td>
-              </tr>
-            ))}
-            {db.vendors.length===0 && <tr><td colSpan="7" className="p-6 text-center text-navy/40">No vendors yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={()=>setEditing(null)}>
-          <div className="bg-white rounded-lg max-w-md w-full p-5" onClick={e=>e.stopPropagation()}>
-            <h3 className="font-bold text-lg text-navy mb-3">{db.vendors.find(v=>v.id===editing.id) ? 'Edit vendor' : 'Add vendor'}</h3>
-            <div className="grid grid-cols-1 gap-3">
-              <Field label="Name"><TInput value={editing.name} onChange={e=>setEditing({...editing,name:e.target.value})} /></Field>
-              <Field label="Contact person"><TInput value={editing.contact} onChange={e=>setEditing({...editing,contact:e.target.value})} /></Field>
-              <Field label="Phone"><TInput value={editing.phone} onChange={e=>setEditing({...editing,phone:e.target.value})} /></Field>
-              <Field label="Email"><TInput value={editing.email} onChange={e=>setEditing({...editing,email:e.target.value})} /></Field>
-              <Field label="Terms (e.g. Net 30, COD)"><TInput value={editing.terms} onChange={e=>setEditing({...editing,terms:e.target.value})} /></Field>
-              <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={editing.favorite} onChange={e=>setEditing({...editing,favorite:e.target.checked})}/> Favorite vendor</label>
-            </div>
-            <div className="flex justify-between mt-5">
-              <Btn kind="danger" onClick={()=>{del(editing.id); setEditing(null);}}>Delete</Btn>
-              <div className="flex gap-2">
-                <Btn kind="ghost" onClick={()=>setEditing(null)}>Cancel</Btn>
-                <Btn kind="primary" onClick={()=>save(editing)} disabled={!editing.name}>Save</Btn>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------- PURCHASING ----------------
-function newPOShell(db) {
-  const n = db.counters.po;
-  return { id: uid(), number: 'PO-' + n, vendorId: '', status: 'draft', createdDate: todayISO(), lines: [], payments: [], notes: '' };
-}
-
-function Purchasing({ db, update }) {
-  const [building, setBuilding] = useState(null);
-  const [openId, setOpenId] = useState(null);
-
-  function startNew() {
-    setBuilding(newPOShell(db));
-  }
-  function loadQueueIntoBuilder() {
-    if (!building) return;
-    const lines = db.orderQueue.map(id => {
-      const it = itemById(db, id);
-      if (!it) return null;
-      const suggestedQty = it.reorderQty > 0 ? it.reorderQty : Math.max(1, num(it.reorderPoint)*2 - num(it.qty));
-      return { itemId: it.id, qtyOrdered: suggestedQty, qtyReceived: 0, cost: it.cost };
-    }).filter(Boolean);
-    setBuilding({ ...building, lines: [...building.lines, ...lines.filter(l => !building.lines.find(x=>x.itemId===l.itemId))] });
-    update(d => { d.orderQueue = []; });
-  }
-  function saveBuilding(sendNow) {
-    if (!building.vendorId) return alert('Choose a vendor.');
-    if (building.lines.length === 0) return alert('Add at least one line item.');
-    update(d => {
-      d.pos.push({ ...building, status: sendNow ? 'sent' : 'draft', sentDate: sendNow ? todayISO() : null });
-      d.counters.po += 1;
-    });
-    setBuilding(null);
-  }
-
-  const po = db.pos.find(p => p.id === openId);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-navy">Purchasing</h1>
-        <Btn kind="primary" onClick={startNew}>+ New purchase order</Btn>
-      </div>
-
-      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
-            <tr><th className="p-2 text-left">PO#</th><th className="p-2 text-left">Vendor</th><th className="p-2 text-left">Status</th><th className="p-2 text-left">Created</th><th className="p-2 text-right">Order total</th><th className="p-2 text-right">Balance</th><th className="p-2"></th></tr>
-          </thead>
-          <tbody>
-            {db.pos.slice().reverse().map(p => {
-              const t = poTotals(p);
-              return (
-                <tr key={p.id} className="border-t border-navy/5">
-                  <td className="p-2 font-medium">{p.number}</td>
-                  <td className="p-2">{vendorName(db, p.vendorId)}</td>
-                  <td className="p-2">{statusBadge(p.status)}</td>
-                  <td className="p-2 text-navy/60">{p.createdDate}</td>
-                  <td className="p-2 text-right mono">{fmt(t.ordered)}</td>
-                  <td className={"p-2 text-right mono font-semibold " + (t.balance>0?'text-alert':'text-ok')}>{fmt(t.balance)}</td>
-                  <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setOpenId(p.id)}>Open</Btn></td>
-                </tr>
-              );
-            })}
-            {db.pos.length===0 && <tr><td colSpan="7" className="p-6 text-center text-navy/40">No purchase orders yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      {building && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={()=>setBuilding(null)}>
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
-            <h3 className="font-bold text-lg text-navy mb-3">Build purchase order — {building.number}</h3>
-            <div className="flex gap-2 mb-3 flex-wrap items-end">
-              <Field label="Vendor">
-                <TSelect value={building.vendorId} onChange={e=>setBuilding({...building, vendorId: e.target.value})}>
-                  <option value="">Choose vendor…</option>
-                  {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}{v.favorite?' ★':''}</option>)}
-                </TSelect>
-              </Field>
-              {db.orderQueue.length > 0 && <Btn kind="brass" onClick={loadQueueIntoBuilder}>Load {db.orderQueue.length} queued item(s)</Btn>}
-              <POLinePicker db={db} onAdd={(line)=>setBuilding({...building, lines:[...building.lines.filter(l=>l.itemId!==line.itemId), line]})} />
-            </div>
-            <table className="w-full text-sm mb-2">
-              <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Item</th><th>Qty ordered</th><th>Cost/unit</th><th className="text-right">Line total</th><th></th></tr></thead>
-              <tbody>
-                {building.lines.map(l => {
-                  const it = itemById(db, l.itemId);
-                  return (
-                    <tr key={l.itemId} className="border-t border-navy/5">
-                      <td className="py-1.5">{it ? it.name : '—'}</td>
-                      <td className="text-center"><TInput type="number" className="w-20 text-right" value={l.qtyOrdered} onChange={e=>setBuilding({...building, lines: building.lines.map(x=>x.itemId===l.itemId?{...x,qtyOrdered:e.target.value}:x)})} /></td>
-                      <td className="text-center"><TInput type="number" step="0.01" className="w-20 text-right" value={l.cost} onChange={e=>setBuilding({...building, lines: building.lines.map(x=>x.itemId===l.itemId?{...x,cost:e.target.value}:x)})} /></td>
-                      <td className="text-right mono">{fmt(num(l.qtyOrdered)*num(l.cost))}</td>
-                      <td className="text-right"><button className="text-alert text-xs" onClick={()=>setBuilding({...building, lines: building.lines.filter(x=>x.itemId!==l.itemId)})}>remove</button></td>
-                    </tr>
-                  );
-                })}
-                {building.lines.length===0 && <tr><td colSpan="5" className="text-center text-navy/40 py-3">No lines yet.</td></tr>}
-              </tbody>
-            </table>
-            <div className="flex justify-between items-center mt-4">
-              <Btn kind="ghost" onClick={()=>setBuilding(null)}>Cancel</Btn>
-              <div className="flex gap-2">
-                <Btn kind="ghost" onClick={()=>saveBuilding(false)}>Save as draft</Btn>
-                <Btn kind="primary" onClick={()=>saveBuilding(true)}>Save &amp; send to vendor</Btn>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {po && <PODetail db={db} update={update} po={po} onClose={()=>setOpenId(null)} />}
-    </div>
-  );
-}
-
-function POLinePicker({ db, onAdd }) {
-  const [id, setId] = useState('');
-  const [qty, setQty] = useState(1);
-  function add() {
-    const it = itemById(db, id);
-    if (!it) return;
-    onAdd({ itemId: it.id, qtyOrdered: num(qty)||1, qtyReceived: 0, cost: it.cost });
-    setId(''); setQty(1);
-  }
-  return (
-    <div className="flex gap-2 items-end">
-      <Field label="Add item">
-        <TSelect value={id} onChange={e=>setId(e.target.value)} className="min-w-[200px]">
-          <option value="">Choose item…</option>
-          {db.items.map(it => <option key={it.id} value={it.id}>{it.name} ({it.upc})</option>)}
-        </TSelect>
-      </Field>
-      <Field label="Qty"><TInput type="number" className="w-20" value={qty} onChange={e=>setQty(e.target.value)} /></Field>
-      <Btn kind="ghost" onClick={add} disabled={!id}>+ Add line</Btn>
-    </div>
-  );
-}
-
-function PODetail({ db, update, po, onClose }) {
-  const [receiving, setReceiving] = useState(false);
-  const [recvQty, setRecvQty] = useState({});
-  const [payAmt, setPayAmt] = useState('');
-  const [moveVendor, setMoveVendor] = useState('');
-  const vendor = db.vendors.find(v => v.id === po.vendorId);
-  const t = poTotals(po);
-
-  function startReceive() {
-    const init = {};
-    po.lines.forEach(l => { init[l.itemId] = num(l.qtyOrdered) - num(l.qtyReceived); });
-    setRecvQty(init);
-    setReceiving(true);
-  }
-  function confirmReceive() {
-    update(d => {
-      const target = d.pos.find(p => p.id === po.id);
-      target.lines.forEach(l => {
-        const recv = num(recvQty[l.itemId]) || 0;
-        l.qtyReceived = Math.min(num(l.qtyOrdered), num(l.qtyReceived) + recv);
-        const it = d.items.find(i => i.id === l.itemId);
-        if (it) it.qty = num(it.qty) + recv;
-      });
-      const fullyReceived = target.lines.every(l => num(l.qtyReceived) >= num(l.qtyOrdered));
-      target.status = fullyReceived ? 'received' : 'partial';
-      target.receivedDate = fullyReceived ? todayISO() : target.receivedDate;
-    });
-    setReceiving(false);
-  }
-  function recordPayment() {
-    const amt = num(payAmt);
-    if (amt <= 0) return;
-    update(d => {
-      const target = d.pos.find(p => p.id === po.id);
-      target.payments = target.payments || [];
-      target.payments.push({ date: todayISO(), amount: amt });
-    });
-    setPayAmt('');
-  }
-  function closePO() {
-    if (!confirm('Close this purchase order? It will no longer be editable.')) return;
-    update(d => { d.pos.find(p=>p.id===po.id).status = 'closed'; });
-    onClose();
-  }
-  function sendShortfallElsewhere() {
-    if (!moveVendor) return alert('Choose a vendor to send the remainder to.');
-    const shortLines = po.lines.filter(l => num(l.qtyOrdered) > num(l.qtyReceived));
-    if (shortLines.length === 0) return alert('Nothing outstanding on this PO.');
-    update(d => {
-      const n = d.counters.po;
-      d.pos.push({
-        id: uid(), number: 'PO-' + n, vendorId: moveVendor, status: 'draft', createdDate: todayISO(),
-        lines: shortLines.map(l => ({ itemId: l.itemId, qtyOrdered: num(l.qtyOrdered) - num(l.qtyReceived), qtyReceived: 0, cost: l.cost })),
-        payments: [], notes: 'Shortfall carried over from ' + po.number
-      });
-      d.counters.po += 1;
-      const target = d.pos.find(p => p.id === po.id);
-      target.lines.forEach(l => { l.qtyOrdered = l.qtyReceived; });
-      target.status = 'closed';
-      target.notes = (target.notes || '') + ' Remainder moved to PO-' + n + '.';
-    });
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
-        <div className="flex justify-between items-start mb-3">
-          <div>
-            <h3 className="font-bold text-lg text-navy">{po.number} {statusBadge(po.status)}</h3>
-            <p className="text-sm text-navy/60">{vendor ? vendor.name : 'No vendor'} {vendor && vendor.terms && <span> · terms: {vendor.terms}</span>}</p>
-            {po.notes && <p className="text-xs text-navy/40 mt-1">{po.notes}</p>}
-          </div>
-          <button onClick={onClose} className="text-navy/40 text-xl leading-none">×</button>
-        </div>
-
-        <table className="w-full text-sm mb-3">
-          <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left py-1">Item</th><th>Ordered</th><th>Received</th><th>Cost</th><th className="text-right">Line total</th></tr></thead>
-          <tbody>
-            {po.lines.map(l => {
-              const it = itemById(db, l.itemId);
-              return (
-                <tr key={l.itemId} className="border-t border-navy/5">
-                  <td className="py-1.5">{it ? it.name : '—'}</td>
-                  <td className="text-center mono">{l.qtyOrdered}</td>
-                  <td className={"text-center mono " + (num(l.qtyReceived)<num(l.qtyOrdered) ? 'text-alert font-semibold' : 'text-ok')}>{l.qtyReceived}</td>
-                  <td className="text-center mono">{fmt(l.cost)}</td>
-                  <td className="text-right mono">{fmt(num(l.qtyOrdered)*num(l.cost))}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="flex flex-wrap gap-4 text-sm mb-4 bg-navy/5 rounded p-3">
-          <div><span className="text-navy/50">Order total: </span><span className="font-semibold">{fmt(t.ordered)}</span></div>
-          <div><span className="text-navy/50">Received value (owed): </span><span className="font-semibold">{fmt(t.received)}</span></div>
-          <div><span className="text-navy/50">Paid: </span><span className="font-semibold text-ok">{fmt(t.paid)}</span></div>
-          <div><span className="text-navy/50">Balance: </span><span className={"font-semibold " + (t.balance>0?'text-alert':'text-ok')}>{fmt(t.balance)}</span></div>
-        </div>
-
-        {po.status !== 'closed' && (
-          <div className="space-y-3">
-            {(po.status==='sent' || po.status==='partial') && !receiving && (
-              <Btn kind="brass" onClick={startReceive}>Receive shipment</Btn>
-            )}
-            {receiving && (
-              <Card title="Receive shipment">
-                <table className="w-full text-sm mb-2">
-                  <thead className="text-navy/50 text-xs uppercase"><tr><th className="text-left">Item</th><th>Outstanding</th><th>Receiving now</th></tr></thead>
-                  <tbody>
-                    {po.lines.filter(l=>num(l.qtyOrdered)>num(l.qtyReceived)).map(l => {
-                      const it = itemById(db, l.itemId);
-                      const outstanding = num(l.qtyOrdered)-num(l.qtyReceived);
-                      return (
-                        <tr key={l.itemId} className="border-t border-navy/5">
-                          <td className="py-1">{it?it.name:'—'}</td>
-                          <td className="text-center mono">{outstanding}</td>
-                          <td className="text-center"><TInput type="number" className="w-20 text-right" value={recvQty[l.itemId]} max={outstanding}
-                            onChange={e=>setRecvQty({...recvQty, [l.itemId]: Math.min(num(e.target.value), outstanding)})} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                <div className="flex gap-2"><Btn kind="ok" onClick={confirmReceive}>Confirm receipt</Btn><Btn kind="ghost" onClick={()=>setReceiving(false)}>Cancel</Btn></div>
-              </Card>
-            )}
-
-            {po.status === 'partial' && (
-              <Card title="Vendor can't supply the rest">
-                <div className="flex gap-2 items-end flex-wrap">
-                  <Field label="Send remaining qty to vendor">
-                    <TSelect value={moveVendor} onChange={e=>setMoveVendor(e.target.value)}>
-                      <option value="">Choose vendor…</option>
-                      {db.vendors.filter(v=>v.id!==po.vendorId).map(v=><option key={v.id} value={v.id}>{v.name}</option>)}
-                    </TSelect>
-                  </Field>
-                  <Btn kind="brass" onClick={sendShortfallElsewhere}>Create PO for shortfall &amp; close this one</Btn>
-                </div>
-              </Card>
-            )}
-
-            <Card title="Record payment">
-              <div className="flex gap-2 items-end">
-                <Field label="Amount"><TInput type="number" step="0.01" className="w-32" value={payAmt} onChange={e=>setPayAmt(e.target.value)} /></Field>
-                <Btn kind="ok" onClick={recordPayment}>Record payment</Btn>
-              </div>
-              {po.payments && po.payments.length>0 && (
-                <ul className="text-xs text-navy/50 mt-2">{po.payments.map((p,i)=><li key={i}>{p.date}: {fmt(p.amount)}</li>)}</ul>
-              )}
-            </Card>
-
-            <div className="flex justify-end"><Btn kind="danger" onClick={closePO}>Close purchase order</Btn></div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------- RFQ / BIDS ----------------
-function RFQ({ db, update }) {
-  const [building, setBuilding] = useState(false);
-  const [pickItems, setPickItems] = useState({});
-  const [pickVendors, setPickVendors] = useState({});
-  const [openId, setOpenId] = useState(null);
-
-  function loadQueue() {
-    const sel = {}; db.orderQueue.forEach(id => sel[id] = true);
-    setPickItems(sel);
-  }
-  function createRFQ() {
-    const itemIds = Object.keys(pickItems).filter(k=>pickItems[k]);
-    const vendorIds = Object.keys(pickVendors).filter(k=>pickVendors[k]);
-    if (itemIds.length===0) return alert('Select at least one item.');
-    if (vendorIds.length===0) return alert('Select at least one vendor to invite.');
-    update(d => {
-      const n = d.counters.rfq;
-      d.rfqs.unshift({ id: uid(), number: 'RFQ-'+n, createdDate: todayISO(), itemIds, vendorIds, status: 'open',
-        bids: {}, // key `${itemId}|${vendorId}` -> price
-        qtyByItem: Object.fromEntries(itemIds.map(id => { const it = itemById(d, id); return [id, it && it.reorderQty>0 ? it.reorderQty : Math.max(1,num(it?.reorderPoint)*2-num(it?.qty))]; })),
-        awardedByItem: {} });
-      d.counters.rfq += 1;
-      d.orderQueue = d.orderQueue.filter(id => !itemIds.includes(id));
-    });
-    setBuilding(false); setPickItems({}); setPickVendors({});
-  }
-
-  const rfq = db.rfqs.find(r=>r.id===openId);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-navy">Bids / RFQ</h1>
-        <Btn kind="primary" onClick={()=>setBuilding(true)}>+ New RFQ</Btn>
-      </div>
-
-      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
-            <tr><th className="p-2 text-left">RFQ#</th><th className="p-2 text-left">Created</th><th className="p-2 text-left">Items</th><th className="p-2 text-left">Vendors invited</th><th className="p-2 text-left">Status</th><th className="p-2"></th></tr>
-          </thead>
-          <tbody>
-            {db.rfqs.map(r => (
-              <tr key={r.id} className="border-t border-navy/5">
-                <td className="p-2 font-medium">{r.number}</td>
-                <td className="p-2 text-navy/60">{r.createdDate}</td>
-                <td className="p-2 text-center">{r.itemIds.length}</td>
-                <td className="p-2 text-center">{r.vendorIds.length}</td>
-                <td className="p-2">{statusBadge(r.status)}</td>
-                <td className="p-2 text-right"><Btn kind="ghost" onClick={()=>setOpenId(r.id)}>Open</Btn></td>
-              </tr>
-            ))}
-            {db.rfqs.length===0 && <tr><td colSpan="6" className="p-6 text-center text-navy/40">No RFQs yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      {building && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={()=>setBuilding(false)}>
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
-            <h3 className="font-bold text-lg text-navy mb-3">New request for bids</h3>
-            {db.orderQueue.length>0 && <Btn kind="brass" className="mb-3" onClick={loadQueue}>Select the {db.orderQueue.length} queued item(s)</Btn>}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="font-semibold text-sm mb-1">Items</div>
-                <div className="max-h-64 overflow-y-auto border border-navy/10 rounded p-2 space-y-1">
-                  {db.items.map(it => (
-                    <label key={it.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={!!pickItems[it.id]} onChange={e=>setPickItems({...pickItems,[it.id]:e.target.checked})} />
-                      {it.name} {lowStock(it) && <span className="text-[10px] bg-alert text-white px-1 rounded">LOW</span>}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="font-semibold text-sm mb-1">Invite vendors</div>
-                <div className="max-h-64 overflow-y-auto border border-navy/10 rounded p-2 space-y-1">
-                  {db.vendors.map(v => (
-                    <label key={v.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={!!pickVendors[v.id]} onChange={e=>setPickVendors({...pickVendors,[v.id]:e.target.checked})} />
-                      {v.name}{v.favorite?' ★':''}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Btn kind="ghost" onClick={()=>setBuilding(false)}>Cancel</Btn>
-              <Btn kind="primary" onClick={createRFQ}>Send RFQ</Btn>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {rfq && <RFQDetail db={db} update={update} rfq={rfq} onClose={()=>setOpenId(null)} />}
-    </div>
-  );
-}
-
-function RFQDetail({ db, update, rfq, onClose }) {
-  function setBid(itemId, vendorId, price) {
-    update(d => {
-      const r = d.rfqs.find(x=>x.id===rfq.id);
-      r.bids[itemId+'|'+vendorId] = price;
-    });
-  }
-  function setQty(itemId, qty) {
-    update(d => { d.rfqs.find(x=>x.id===rfq.id).qtyByItem[itemId] = qty; });
-  }
-  function award(itemId, vendorId) {
-    const price = rfq.bids[itemId+'|'+vendorId];
-    if (price === undefined || price === '') return alert('Enter a bid price for that vendor first.');
-    const qty = num(rfq.qtyByItem[itemId]) || 1;
-    update(d => {
-      const r = d.rfqs.find(x=>x.id===rfq.id);
-      r.awardedByItem[itemId] = vendorId;
-      let po = d.pos.find(p => p.status==='draft' && p.vendorId===vendorId && p.rfqId===r.id);
-      if (!po) {
-        const n = d.counters.po;
-        po = { id: uid(), number: 'PO-'+n, vendorId, status: 'draft', createdDate: todayISO(), lines: [], payments: [], notes: 'Awarded from ' + r.number, rfqId: r.id };
-        d.pos.push(po); d.counters.po += 1;
-      }
-      const existing = po.lines.find(l=>l.itemId===itemId);
-      if (existing) { existing.qtyOrdered = qty; existing.cost = num(price); }
-      else po.lines.push({ itemId, qtyOrdered: qty, qtyReceived: 0, cost: num(price) });
-      const allAwarded = r.itemIds.every(id => r.awardedByItem[id]);
-      r.status = allAwarded ? 'awarded' : 'open';
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="font-bold text-lg text-navy">{rfq.number} {statusBadge(rfq.status)}</h3>
-          <button onClick={onClose} className="text-navy/40 text-xl leading-none">×</button>
-        </div>
-        <p className="text-xs text-navy/50 mb-3">Enter each vendor's quoted price per unit as bids come in, set the order quantity, then award the item to the best vendor. Awarding creates or updates a draft PO for that vendor.</p>
-        <table className="w-full text-sm">
-          <thead className="text-navy/50 text-xs uppercase">
-            <tr>
-              <th className="text-left py-1">Item</th>
-              <th>Order qty</th>
-              {rfq.vendorIds.map(vid => <th key={vid}>{vendorName(db, vid)}</th>)}
-              <th>Awarded</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rfq.itemIds.map(itemId => {
-              const it = itemById(db, itemId);
-              const awardedVendor = rfq.awardedByItem[itemId];
-              return (
-                <tr key={itemId} className="border-t border-navy/5">
-                  <td className="py-1.5">{it?it.name:'—'}</td>
-                  <td className="text-center"><TInput type="number" className="w-16 text-right" value={rfq.qtyByItem[itemId]} onChange={e=>setQty(itemId, e.target.value)} /></td>
-                  {rfq.vendorIds.map(vid => (
-                    <td key={vid} className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <TInput type="number" step="0.01" className="w-20 text-right" value={rfq.bids[itemId+'|'+vid] ?? ''} onChange={e=>setBid(itemId, vid, e.target.value)} placeholder="bid" />
-                        <button onClick={()=>award(itemId, vid)} className={"text-[10px] px-1.5 py-0.5 rounded " + (awardedVendor===vid ? 'bg-ok text-white' : 'bg-navy/10 text-navy/60 hover:bg-brass hover:text-white')}>
-                          {awardedVendor===vid ? 'Awarded ✓' : 'Award'}
-                        </button>
-                      </div>
-                    </td>
-                  ))}
-                  <td className="text-center text-xs text-navy/50">{awardedVendor ? vendorName(db, awardedVendor) : '—'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ---------------- PAYMENTS / AP ----------------
-function Payments({ db }) {
-  const withBalance = db.pos.map(p => ({ po: p, t: poTotals(p) })).filter(x => x.t.received > 0);
-  const totalOutstanding = withBalance.reduce((s,x)=> s + Math.max(0,x.t.balance), 0);
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-navy">Payments &amp; AP overview</h1>
-      <Stat label="Total outstanding to vendors" value={fmt(totalOutstanding)} tone={totalOutstanding?'alert':'ok'} />
-      <div className="bg-white rounded-lg border border-navy/10 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-navy/5 text-navy/60 text-xs uppercase">
-            <tr><th className="p-2 text-left">PO#</th><th className="p-2 text-left">Vendor</th><th className="p-2 text-left">Terms</th><th className="p-2 text-left">Status</th><th className="p-2 text-right">Owed (received)</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Balance</th></tr>
-          </thead>
-          <tbody>
-            {withBalance.map(({po,t}) => {
-              const v = db.vendors.find(x=>x.id===po.vendorId);
-              return (
-                <tr key={po.id} className="border-t border-navy/5">
-                  <td className="p-2 font-medium">{po.number}</td>
-                  <td className="p-2">{v?v.name:'—'}</td>
-                  <td className="p-2 text-navy/60">{v?v.terms:''}</td>
-                  <td className="p-2">{statusBadge(po.status)}</td>
-                  <td className="p-2 text-right mono">{fmt(t.received)}</td>
-                  <td className="p-2 text-right mono text-ok">{fmt(t.paid)}</td>
-                  <td className={"p-2 text-right mono font-semibold " + (t.balance>0?'text-alert':'text-ok')}>{fmt(t.balance)}</td>
-                </tr>
-              );
-            })}
-            {withBalance.length===0 && <tr><td colSpan="7" className="p-6 text-center text-navy/40">Nothing received yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    function downloadFile(content, filename) {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
 </script>
+
 </body>
 </html>
