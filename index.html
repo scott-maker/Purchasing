@@ -66,20 +66,64 @@
             { id: 'c1', sku: 'HW-SRV-01', name: 'Server Racks', category: 'Hardware', stdPrice: 1200 },
             { id: 'c2', sku: 'SW-CLD-99', name: 'Cloud Subscriptions', category: 'Software', stdPrice: 5000 },
             { id: 'c3', sku: 'OF-CHR-12', name: 'Office Chairs', category: 'Furniture', stdPrice: 200 },
-            { id: 'c4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', category: 'IT Equip', stdPrice: 950 }
+            { id: 'c4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', category: 'IT Equip', stdPrice: 950 },
+            { id: 'c5', sku: 'HW-CBL-09', name: 'Cat6 Ethernet Cables (100pk)', category: 'Hardware', stdPrice: 120 },
+            { id: 'c6', sku: 'HW-PDU-04', name: 'Smart Power Distribution Unit', category: 'Hardware', stdPrice: 650 }
         ];
 
         const seedInventory = [
             { id: 'i1', sku: 'HW-SRV-01', name: 'Server Racks', stock: 3, minStock: 5, warehouse: 'WH-East' },
             { id: 'i2', sku: 'SW-CLD-99', name: 'Cloud Subscriptions', stock: 50, minStock: 10, warehouse: 'Cloud' },
             { id: 'i3', sku: 'OF-CHR-12', name: 'Office Chairs', stock: 8, minStock: 12, warehouse: 'WH-West' },
-            { id: 'i4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', stock: 2, minStock: 10, warehouse: 'WH-Central' }
+            { id: 'i4', sku: 'IT-LPT-05', name: 'Laptops (ThinkPad)', stock: 2, minStock: 10, warehouse: 'WH-Central' },
+            { id: 'i5', sku: 'HW-CBL-09', name: 'Cat6 Ethernet Cables (100pk)', stock: 4, minStock: 15, warehouse: 'WH-East' }
         ];
 
         const seedPOs = [
-            { id: 'PO-1001', vendorId: 'v1', vendorName: 'Acme Corp', itemName: 'Server Racks', qty: 5, receivedQty: 0, price: 1200, total: 6000, status: 'PENDING APPROVAL', paymentStatus: 'UNPAID', date: '2026-06-01' },
-            { id: 'PO-1002', vendorId: 'v2', vendorName: 'Global Tech', itemName: 'Cloud Subscriptions', qty: 1, receivedQty: 1, price: 5000, total: 5000, status: 'FULFILLED', paymentStatus: 'PAID', date: '2026-06-10', rated: true },
-            { id: 'PO-1003', vendorId: 'v3', vendorName: 'FastLogistics', itemName: 'Freight Q3', qty: 10, receivedQty: 4, price: 150, total: 1500, status: 'PARTIAL RECEIPT', paymentStatus: 'UNPAID', date: '2026-06-12' }
+            {
+                id: 'PO-1001',
+                vendorId: 'v1',
+                vendorName: 'Acme Corp',
+                date: '2026-06-01',
+                status: 'PENDING APPROVAL',
+                paymentStatus: 'UNPAID',
+                paidAmount: 0,
+                items: [
+                    { name: 'Server Racks', qty: 3, receivedQty: 0, price: 1200 },
+                    { name: 'Smart Power Distribution Unit', qty: 2, receivedQty: 0, price: 650 },
+                    { name: 'Cat6 Ethernet Cables (100pk)', qty: 10, receivedQty: 0, price: 120 },
+                    { name: 'Office Chairs', qty: 4, receivedQty: 0, price: 200 }
+                ]
+            },
+            {
+                id: 'PO-1002',
+                vendorId: 'v2',
+                vendorName: 'Global Tech',
+                date: '2026-06-10',
+                status: 'FULFILLED',
+                paymentStatus: 'PAID',
+                paidAmount: 5800,
+                rated: true,
+                items: [
+                    { name: 'Cloud Subscriptions', qty: 1, receivedQty: 1, price: 5000 },
+                    { name: 'Laptops (ThinkPad)', qty: 2, receivedQty: 2, price: 400 }
+                ]
+            },
+            {
+                id: 'PO-1003',
+                vendorId: 'v3',
+                vendorName: 'FastLogistics',
+                date: '2026-06-12',
+                status: 'PARTIAL RECEIPT',
+                paymentStatus: 'PARTIALLY PAID',
+                paidAmount: 1000,
+                items: [
+                    { name: 'Server Racks', qty: 2, receivedQty: 1, price: 1200 },
+                    { name: 'Office Chairs', qty: 10, receivedQty: 4, price: 200 },
+                    { name: 'Cat6 Ethernet Cables (100pk)', qty: 15, receivedQty: 5, price: 120 },
+                    { name: 'Smart Power Distribution Unit', qty: 1, receivedQty: 0, price: 650 }
+                ]
+            }
         ];
 
         const seedBids = [
@@ -119,6 +163,8 @@
             document.body.removeChild(link);
         };
 
+        const calculatePOTotal = (items) => items.reduce((sum, i) => sum + (i.qty * i.price), 0);
+
         // --- TOAST CONTEXT ---
         const ToastContext = createContext();
         const ToastProvider = ({ children }) => {
@@ -145,11 +191,11 @@
         const useToast = () => useContext(ToastContext);
 
         // --- UI COMPONENTS ---
-        const Modal = ({ isOpen, onClose, title, children }) => {
+        const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' }) => {
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-xs z-50 flex justify-center items-center fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden border border-slate-100 mx-4`}>
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h3 className="font-bold text-slate-800 text-base">{title}</h3>
                             <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"><i className="fa-solid fa-xmark"></i></button>
@@ -166,9 +212,11 @@
                 'ISSUED': 'bg-blue-50 text-blue-700 border-blue-200',
                 'PARTIAL RECEIPT': 'bg-indigo-50 text-indigo-700 border-indigo-200',
                 'FULFILLED': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'CLOSED / CANCELLED': 'bg-slate-100 text-slate-600 border-slate-300',
                 'PENDING': 'bg-slate-100 text-slate-700 border-slate-200',
                 'AWARDED': 'bg-violet-50 text-violet-700 border-violet-200',
                 'PAID': 'bg-teal-50 text-teal-700 border-teal-200',
+                'PARTIALLY PAID': 'bg-cyan-50 text-cyan-700 border-cyan-200',
                 'UNPAID': 'bg-rose-50 text-rose-700 border-rose-200'
             };
             return (
@@ -182,22 +230,23 @@
         // --- VIEWS ---
 
         const DashboardView = ({ pos, vendors, inventory }) => {
-            const totalSpend = pos.reduce((sum, po) => sum + po.total, 0);
+            const totalSpend = pos.reduce((sum, po) => sum + calculatePOTotal(po.items), 0);
             const pendingApprovalsCount = pos.filter(p => p.status === 'PENDING APPROVAL').length;
             const lowStockCount = inventory.filter(i => i.stock <= i.minStock).length;
-            const BUDGET_QUARTER = 200000;
+            const BUDGET_QUARTER = 250000;
             const budgetUsedPerc = Math.min((totalSpend / BUDGET_QUARTER) * 100, 100).toFixed(1);
             
             const spendByVendorMap = pos.reduce((acc, po) => {
-                acc[po.vendorName] = (acc[po.vendorName] || 0) + po.total;
+                acc[po.vendorName] = (acc[po.vendorName] || 0) + calculatePOTotal(po.items);
                 return acc;
             }, {});
             const barData = Object.keys(spendByVendorMap).map(k => ({ name: k, Spend: spendByVendorMap[k] }));
 
             const timelineData = [...pos].sort((a,b) => new Date(a.date) - new Date(b.date)).reduce((acc, po) => {
+                const total = calculatePOTotal(po.items);
                 const existing = acc.find(x => x.date === po.date);
-                if(existing) existing.amount += po.total;
-                else acc.push({ date: po.date, amount: po.total });
+                if(existing) existing.amount += total;
+                else acc.push({ date: po.date, amount: total });
                 return acc;
             }, []);
 
@@ -206,7 +255,7 @@
                     <div className="flex justify-between items-center">
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Executive Procurement Dashboard</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Real-time spend intelligence, stock thresholds, and manager workflows.</p>
+                            <p className="text-sm text-slate-500 mt-0.5">Real-time spend intelligence, multi-item purchase tracking, and budget controls.</p>
                         </div>
                         {(pendingApprovalsCount > 0 || lowStockCount > 0) && (
                             <div className="flex gap-2">
@@ -298,19 +347,19 @@
 
             const handleReorder = (item) => {
                 const deficit = (item.minStock * 2) - item.stock;
+                const qty = deficit > 0 ? deficit : 10;
                 const defaultVendor = vendors[0];
                 const newPO = {
                     id: generateId('PO'),
                     vendorId: defaultVendor.id,
                     vendorName: defaultVendor.name,
-                    itemName: item.name,
-                    qty: deficit > 0 ? deficit : 10,
-                    receivedQty: 0,
-                    price: 150,
-                    total: (deficit > 0 ? deficit : 10) * 150,
+                    date: new Date().toISOString().split('T')[0],
                     status: 'PENDING APPROVAL',
                     paymentStatus: 'UNPAID',
-                    date: new Date().toISOString().split('T')[0]
+                    paidAmount: 0,
+                    items: [
+                        { name: item.name, qty: qty, receivedQty: 0, price: 150 }
+                    ]
                 };
                 setPOs([newPO, ...pos]);
                 addToast(`Auto-generated reorder PO for ${item.name}!`, 'success');
@@ -394,43 +443,55 @@
             const [statusFilter, setStatusFilter] = useState("ALL");
             const [createModal, setCreateModal] = useState(false);
             const [receivePO, setReceivePO] = useState(null); 
-            const [ratePO, setRatePO] = useState(null); // Vendor rating modal state
-            const [ratingData, setRatingData] = useState({ quality: 5, delivery: 5, cost: 5 });
+            const [ratePO, setRatePO] = useState(null); 
+            const [payPO, setPayPO] = useState(null); // Partial Payment Modal state
+            const [paymentAmountInput, setPaymentAmountInput] = useState("");
+            const [viewItemsPO, setViewItemsPO] = useState(null); // Modal to view/inspect all items in PO
 
-            const filteredPOs = pos.filter(p => {
-                const matchesSearch = p.id.toLowerCase().includes(searchTerm.toLowerCase()) || p.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) || p.itemName.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
-                return matchesSearch && matchesStatus;
-            });
+            // State for drafting new PO with multiple items
+            const [draftItems, setDraftItems] = useState([
+                { name: '', qty: 1, price: 0 }
+            ]);
+
+            const addDraftItemRow = () => {
+                setDraftItems([...draftItems, { name: '', qty: 1, price: 0 }]);
+            };
+
+            const removeDraftItemRow = (index) => {
+                if(draftItems.length === 1) return;
+                setDraftItems(draftItems.filter((_, i) => i !== index));
+            };
 
             const handleCreatePO = (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.target);
                 const vendorId = fd.get('vendorId');
                 const vendor = vendors.find(v => v.id === vendorId);
-                const itemName = fd.get('itemName');
-                const qty = parseInt(fd.get('qty'));
-                const price = parseFloat(fd.get('price'));
-                const total = qty * price;
                 
-                // If total > 5000, requires approval manager sign-off
+                const formattedItems = draftItems.map((item, idx) => ({
+                    name: fd.get(`itemName_${idx}`),
+                    qty: parseInt(fd.get(`itemQty_${idx}`)),
+                    receivedQty: 0,
+                    price: parseFloat(fd.get(`itemPrice_${idx}`))
+                }));
+
+                const total = calculatePOTotal(formattedItems);
                 const initialStatus = total > 5000 ? 'PENDING APPROVAL' : 'ISSUED';
 
                 const newPO = {
                     id: generateId('PO'),
                     vendorId: vendor.id, 
                     vendorName: vendor.name,
-                    itemName, 
-                    qty, 
-                    receivedQty: 0, 
-                    price, 
-                    total,
+                    date: new Date().toISOString().split('T')[0],
                     status: initialStatus, 
                     paymentStatus: 'UNPAID',
-                    date: new Date().toISOString().split('T')[0]
+                    paidAmount: 0,
+                    items: formattedItems
                 };
+
                 setPOs([newPO, ...pos]);
                 setCreateModal(false);
+                setDraftItems([{ name: '', qty: 1, price: 0 }]);
                 addToast(`PO ${newPO.id} successfully created! ${initialStatus === 'PENDING APPROVAL' ? '(Requires Approval)' : ''}`, 'success');
             };
 
@@ -439,39 +500,76 @@
                 addToast(`PO ${poId} approved and issued to vendor!`, 'success');
             };
 
-            const handleReceive = (e) => {
+            const handleReceiveSubmit = (e) => {
                 e.preventDefault();
-                const amount = parseInt(new FormData(e.target).get('amount'));
-                
-                setPOs(pos.map(p => {
-                    if(p.id !== receivePO.id) return p;
-                    const newReceived = p.receivedQty + amount;
-                    const newStatus = newReceived >= p.qty ? 'FULFILLED' : 'PARTIAL RECEIPT';
-                    return { ...p, receivedQty: newReceived, status: newStatus };
-                }));
+                const fd = new FormData(e.target);
 
-                // Update inventory stock levels
+                const updatedItems = receivePO.items.map((item, idx) => {
+                    const receivedNow = parseInt(fd.get(`received_${idx}`)) || 0;
+                    return {
+                        ...item,
+                        receivedQty: Math.min(item.qty, item.receivedQty + receivedNow)
+                    };
+                });
+
+                // Check if all items are fully received
+                const allFulfilled = updatedItems.every(i => i.receivedQty >= i.qty);
+                const newStatus = allFulfilled ? 'FULFILLED' : 'PARTIAL RECEIPT';
+
+                setPOs(pos.map(p => p.id === receivePO.id ? { ...p, items: updatedItems, status: newStatus } : p));
+
+                // Update inventory quantities
                 setInventory(inventory.map(inv => {
-                    if(inv.name.toLowerCase() === receivePO.itemName.toLowerCase()) {
-                        return { ...inv, stock: inv.stock + amount };
+                    const matchingItem = updatedItems.find(ui => ui.name.toLowerCase() === inv.name.toLowerCase());
+                    if(matchingItem) {
+                        const delta = matchingItem.receivedQty - (receivePO.items.find(ri => ri.name.toLowerCase() === inv.name.toLowerCase())?.receivedQty || 0);
+                        return { ...inv, stock: inv.stock + delta };
                     }
                     return inv;
                 }));
-                
+
                 setReceivePO(null);
-                addToast(`Received ${amount} units for ${receivePO.id}. Inventory updated.`, 'success');
+                addToast(`Goods receipt logged for ${receivePO.id}. Inventory updated.`, 'success');
             };
 
-            const handlePay = (poId) => {
-                setPOs(pos.map(p => p.id === poId ? { ...p, paymentStatus: 'PAID' } : p));
-                addToast(`PO ${poId} marked as PAID.`, 'success');
+            // Cancel / Close remaining unfulfilled balance so it drops out of pending/active
+            const handleCloseRemaining = (poId) => {
+                setPOs(pos.map(p => {
+                    if(p.id !== poId) return p;
+                    const closedItems = p.items.map(item => ({
+                        ...item,
+                        receivedQty: item.qty // force received to match ordered so remaining balance is zeroed out
+                    }));
+                    return {
+                        ...p,
+                        items: closedItems,
+                        status: 'CLOSED / CANCELLED'
+                    };
+                }));
+                addToast(`PO ${poId} remaining balance cancelled and closed.`, 'success');
+            };
+
+            const handlePaymentSubmit = (e) => {
+                e.preventDefault();
+                const paymentVal = parseFloat(paymentAmountInput);
+                const total = calculatePOTotal(payPO.items);
+                const newPaidTotal = (payPO.paidAmount || 0) + paymentVal;
+                
+                let newPaymentStatus = 'PARTIALLY PAID';
+                if(newPaidTotal >= total) newPaymentStatus = 'PAID';
+                if(newPaidTotal <= 0) newPaymentStatus = 'UNPAID';
+
+                setPOs(pos.map(p => p.id === payPO.id ? { ...p, paidAmount: newPaidTotal, paymentStatus: newPaymentStatus } : p));
+                setPayPO(null);
+                setPaymentAmountInput("");
+                addToast(`Payment of $${paymentVal.toLocaleString()} logged for ${payPO.id}. Status: ${newPaymentStatus}`, 'success');
             };
 
             const submitVendorRating = (e) => {
                 e.preventDefault();
-                const avgScore = Math.round((parseInt(ratingData.quality) + parseInt(ratingData.delivery) + parseInt(ratingData.cost)) / 3 * 20); // 1-5 scale mapped to ~100
+                const fd = new FormData(e.target);
+                const avgScore = Math.round((parseInt(fd.get('quality')) + parseInt(fd.get('delivery')) + parseInt(fd.get('cost'))) / 3 * 20);
                 
-                // Update vendor score (weighted average or simple update)
                 setVendors(vendors.map(v => {
                     if(v.id === ratePO.vendorId) {
                         const newScore = Math.round((v.score + avgScore) / 2);
@@ -480,31 +578,35 @@
                     return v;
                 }));
 
-                // Mark PO as rated
                 setPOs(pos.map(p => p.id === ratePO.id ? { ...p, rated: true } : p));
                 setRatePO(null);
-                addToast(`Vendor performance score updated successfully!`, 'success');
+                addToast(`Vendor scorecard submitted! Vendor performance score updated.`, 'success');
             };
+
+            const filteredPOs = pos.filter(p => {
+                const matchesSearch = p.id.toLowerCase().includes(searchTerm.toLowerCase()) || p.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) || p.items.some(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
 
             return (
                 <div className="fade-in space-y-6">
                     <div className="flex justify-between items-center">
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Purchase Orders & Receiving</h2>
-                            <p className="text-sm text-slate-500 mt-0.5">Manage approval workflows, track goods receiving, and accounts payable.</p>
+                            <p className="text-sm text-slate-500 mt-0.5">Manage multi-item orders, partial receipts, partial payments, and cancellation workflows.</p>
                         </div>
                         <div className="flex gap-3">
                             <button onClick={() => exportCSV(pos, 'purchase_orders.csv')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition flex items-center gap-2">
                                 <i className="fa-solid fa-download text-slate-400"></i> Export
                             </button>
                             <button onClick={() => setCreateModal(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-sm transition flex items-center gap-2">
-                                <i className="fa-solid fa-plus"></i> Create PO
+                                <i className="fa-solid fa-plus"></i> Create Multi-Item PO
                             </button>
                         </div>
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                        {/* Filter and Search Bar */}
                         <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
                             <div className="relative w-80">
                                 <i className="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
@@ -518,6 +620,7 @@
                                     <option value="ISSUED">Issued</option>
                                     <option value="PARTIAL RECEIPT">Partial Receipt</option>
                                     <option value="FULFILLED">Fulfilled</option>
+                                    <option value="CLOSED / CANCELLED">Closed / Cancelled</option>
                                 </select>
                             </div>
                         </div>
@@ -528,8 +631,7 @@
                                     <tr>
                                         <th className="p-4">PO # & Date</th>
                                         <th className="p-4">Vendor</th>
-                                        <th className="p-4">Item</th>
-                                        <th className="p-4">Qty Progress</th>
+                                        <th className="p-4">Line Items</th>
                                         <th className="p-4">Total Amount</th>
                                         <th className="p-4">Status</th>
                                         <th className="p-4">Payment</th>
@@ -537,59 +639,118 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredPOs.length > 0 ? filteredPOs.map((p) => (
-                                        <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                            <td className="p-4">
-                                                <p className="font-bold text-slate-900">{p.id}</p>
-                                                <p className="text-xs text-slate-400">{p.date}</p>
-                                            </td>
-                                            <td className="p-4 font-semibold text-slate-800">{p.vendorName}</td>
-                                            <td className="p-4 text-slate-700">{p.itemName}</td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2.5">
-                                                    <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-indigo-500 h-2 rounded-full" style={{width: `${(p.receivedQty/p.qty)*100}%`}}></div></div>
-                                                    <span className="text-xs font-medium text-slate-500">{p.receivedQty}/{p.qty}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4 font-bold text-slate-900">${p.total.toLocaleString()}</td>
-                                            <td className="p-4"><StatusBadge status={p.status} /></td>
-                                            <td className="p-4"><StatusBadge status={p.paymentStatus} /></td>
-                                            <td className="p-4 text-right space-x-2">
-                                                {p.status === 'PENDING APPROVAL' && (
-                                                    <button onClick={() => handleApprovePO(p.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-xs">
-                                                        <i className="fa-solid fa-check mr-1"></i> Approve
+                                    {filteredPOs.length > 0 ? filteredPOs.map((p) => {
+                                        const totalAmt = calculatePOTotal(p.items);
+                                        const itemCount = p.items.length;
+                                        return (
+                                            <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                                <td className="p-4">
+                                                    <p className="font-bold text-slate-900">{p.id}</p>
+                                                    <p className="text-xs text-slate-400">{p.date}</p>
+                                                </td>
+                                                <td className="p-4 font-semibold text-slate-800">{p.vendorName}</td>
+                                                <td className="p-4">
+                                                    <button onClick={() => setViewItemsPO(p)} className="text-xs font-bold text-indigo-600 hover:underline bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 inline-flex items-center gap-1.5">
+                                                        <i className="fa-solid fa-list-check"></i> {itemCount} items (View breakdown)
                                                     </button>
-                                                )}
-                                                {p.status !== 'FULFILLED' && p.status !== 'PENDING APPROVAL' && (
-                                                    <button onClick={() => setReceivePO(p)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition shadow-xs">
-                                                        <i className="fa-solid fa-boxes-stacked mr-1"></i> Receive
-                                                    </button>
-                                                )}
-                                                {p.status === 'FULFILLED' && p.paymentStatus === 'UNPAID' && (
-                                                    <button onClick={() => handlePay(p.id)} className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-semibold hover:bg-teal-100 transition shadow-xs">
-                                                        <i className="fa-solid fa-file-invoice-dollar mr-1"></i> Pay Inv
-                                                    </button>
-                                                )}
-                                                {p.status === 'FULFILLED' && !p.rated && (
-                                                    <button onClick={() => setRatePO(p)} className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold hover:bg-amber-100 transition shadow-xs">
-                                                        <i className="fa-solid fa-star mr-1"></i> Rate Vendor
-                                                    </button>
-                                                )}
-                                                {p.rated && (
-                                                    <span className="text-xs text-slate-400 italic">Rated <i className="fa-solid fa-star text-amber-400"></i></span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan="8" className="p-12 text-center text-slate-400 font-medium">No Purchase Orders match your search or filter.</td></tr>
+                                                </td>
+                                                <td className="p-4 font-bold text-slate-900">${totalAmt.toLocaleString()}</td>
+                                                <td className="p-4"><StatusBadge status={p.status} /></td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <StatusBadge status={p.paymentStatus} />
+                                                        <span className="text-xs text-slate-500 font-medium">(${p.paidAmount || 0} paid)</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-right space-x-2">
+                                                    {p.status === 'PENDING APPROVAL' && (
+                                                        <button onClick={() => handleApprovePO(p.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-xs">
+                                                            <i className="fa-solid fa-check mr-1"></i> Approve
+                                                        </button>
+                                                    )}
+                                                    {p.status !== 'FULFILLED' && p.status !== 'CLOSED / CANCELLED' && p.status !== 'PENDING APPROVAL' && (
+                                                        <>
+                                                            <button onClick={() => setReceivePO(p)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition shadow-xs">
+                                                                <i className="fa-solid fa-boxes-stacked mr-1"></i> Receive
+                                                            </button>
+                                                            <button onClick={() => handleCloseRemaining(p.id)} className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold hover:bg-rose-100 transition shadow-xs" title="Zero out remaining unfulfilled quantities and close order">
+                                                                <i className="fa-solid fa-ban mr-1"></i> Close Balance
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {p.paymentStatus !== 'PAID' && p.status !== 'CLOSED / CANCELLED' && (
+                                                        <button onClick={() => { setPayPO(p); setPaymentAmountInput(totalAmt - (p.paidAmount || 0)); }} className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-semibold hover:bg-teal-100 transition shadow-xs">
+                                                            <i className="fa-solid fa-file-invoice-dollar mr-1"></i> Pay...
+                                                        </button>
+                                                    )}
+                                                    {p.status === 'FULFILLED' && !p.rated && (
+                                                        <button onClick={() => setRatePO(p)} className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold hover:bg-amber-100 transition shadow-xs">
+                                                            <i className="fa-solid fa-star mr-1"></i> Rate Vendor
+                                                        </button>
+                                                    )}
+                                                    {p.rated && (
+                                                        <span className="text-xs text-slate-400 italic">Rated <i className="fa-solid fa-star text-amber-400"></i></span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    }) : (
+                                        <tr><td colSpan="7" className="p-12 text-center text-slate-400 font-medium">No Purchase Orders match your search or filter.</td></tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    {/* CREATE PO MODAL */}
-                    <Modal isOpen={createModal} onClose={() => setCreateModal(false)} title="Draft New Purchase Order">
+                    {/* VIEW ITEMS BREAKDOWN MODAL */}
+                    <Modal isOpen={!!viewItemsPO} onClose={() => setViewItemsPO(null)} title={`PO Details - ${viewItemsPO?.id}`} maxWidth="max-w-2xl">
+                        {viewItemsPO && (
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-sm bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <div>
+                                        <p className="text-slate-500 text-xs uppercase font-bold">Vendor</p>
+                                        <p className="font-bold text-slate-800">{viewItemsPO.vendorName}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-500 text-xs uppercase font-bold">Order Date</p>
+                                        <p className="font-bold text-slate-800">{viewItemsPO.date}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-500 text-xs uppercase font-bold">Total Value</p>
+                                        <p className="font-bold text-indigo-600">${calculatePOTotal(viewItemsPO.items).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                                <h4 className="font-bold text-slate-800 text-sm mt-4">Line Items ({viewItemsPO.items.length})</h4>
+                                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                    <table className="w-full text-left text-sm text-slate-600">
+                                        <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-xs uppercase">
+                                            <tr>
+                                                <th className="p-3">Item Description</th>
+                                                <th className="p-3">Ordered Qty</th>
+                                                <th className="p-3">Received Qty</th>
+                                                <th className="p-3">Unit Price</th>
+                                                <th className="p-3 text-right">Line Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {viewItemsPO.items.map((item, idx) => (
+                                                <tr key={idx} className="border-b border-slate-100">
+                                                    <td className="p-3 font-semibold text-slate-800">{item.name}</td>
+                                                    <td className="p-3">{item.qty}</td>
+                                                    <td className="p-3 font-medium text-indigo-600">{item.receivedQty}</td>
+                                                    <td className="p-3">${item.price.toLocaleString()}</td>
+                                                    <td className="p-3 text-right font-bold text-slate-900">${(item.qty * item.price).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </Modal>
+
+                    {/* CREATE MULTI-ITEM PO MODAL */}
+                    <Modal isOpen={createModal} onClose={() => setCreateModal(false)} title="Create Multi-Item Purchase Order" maxWidth="max-w-2xl">
                         <form onSubmit={handleCreatePO} className="space-y-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Select Vendor</label>
@@ -598,17 +759,38 @@
                                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.terms})</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Item Description</label>
-                                <input required list="catalog-items" name="itemName" className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Type or select from catalog" />
+
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Order Line Items (4-5 items supported)</label>
+                                    <button type="button" onClick={addDraftItemRow} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">
+                                        <i className="fa-solid fa-plus mr-1"></i> Add Line Item
+                                    </button>
+                                </div>
+
+                                {draftItems.map((item, idx) => (
+                                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                        <div className="flex-1">
+                                            <input required list="catalog-items" name={`itemName_${idx}`} placeholder="Item name or SKU" className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-primary" />
+                                        </div>
+                                        <div className="w-24">
+                                            <input required type="number" min="1" name={`itemQty_${idx}`} placeholder="Qty" className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-primary" defaultValue="1" />
+                                        </div>
+                                        <div className="w-28">
+                                            <input required type="number" step="0.01" name={`itemPrice_${idx}`} placeholder="Unit $" className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-primary" />
+                                        </div>
+                                        {draftItems.length > 1 && (
+                                            <button type="button" onClick={() => removeDraftItemRow(idx)} className="text-rose-500 hover:text-rose-700 p-2">
+                                                <i className="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
                                 <datalist id="catalog-items">
                                     {catalog.map(c => <option key={c.id} value={c.name} />)}
                                 </datalist>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Quantity</label><input required type="number" name="qty" min="1" className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" /></div>
-                                <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Unit Price ($)</label><input required type="number" step="0.01" name="price" className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" /></div>
-                            </div>
+
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
                                 <i className="fa-solid fa-circle-info mt-0.5"></i>
                                 <span>POs exceeding $5,000 will automatically require managerial sign-off before being issued.</span>
@@ -618,20 +800,47 @@
                     </Modal>
 
                     {/* RECEIVE ITEMS MODAL */}
-                    <Modal isOpen={!!receivePO} onClose={() => setReceivePO(null)} title={`Log Goods Receipt - ${receivePO?.id}`}>
+                    <Modal isOpen={!!receivePO} onClose={() => setReceivePO(null)} title={`Log Goods Receipt - ${receivePO?.id}`} maxWidth="max-w-xl">
                         {receivePO && (
-                            <form onSubmit={handleReceive} className="space-y-4">
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm text-slate-700 space-y-1">
-                                    <p><strong>Item:</strong> {receivePO.itemName}</p>
-                                    <p><strong>Ordered Quantity:</strong> {receivePO.qty} units</p>
-                                    <p><strong>Already Received:</strong> {receivePO.receivedQty} units</p>
-                                    <p><strong>Pending Balance:</strong> <span className="font-bold text-indigo-600">{receivePO.qty - receivePO.receivedQty} units</span></p>
+                            <form onSubmit={handleReceiveSubmit} className="space-y-4">
+                                <p className="text-sm text-slate-500">Enter quantities received for each line item on this purchase order:</p>
+                                <div className="space-y-3">
+                                    {receivePO.items.map((item, idx) => {
+                                        const remaining = item.qty - item.receivedQty;
+                                        return (
+                                            <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-bold text-slate-800 text-sm">{item.name}</p>
+                                                    <p className="text-xs text-slate-500">Ordered: {item.qty} | Already Received: {item.receivedQty} | Remaining: <span className="font-bold text-indigo-600">{remaining}</span></p>
+                                                </div>
+                                                <div className="w-28">
+                                                    <input type="number" min="0" max={remaining} defaultValue={remaining} name={`received_${idx}`} className="w-full border border-slate-200 rounded-lg p-2 text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-primary" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm mt-4">Confirm & Update Inventory Stock</button>
+                            </form>
+                        )}
+                    </Modal>
+
+                    {/* FLEXIBLE & PARTIAL PAYMENT MODAL */}
+                    <Modal isOpen={!!payPO} onClose={() => setPayPO(null)} title={`Accounts Payable / Payment - ${payPO?.id}`}>
+                        {payPO && (
+                            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm space-y-1">
+                                    <p><strong>Vendor:</strong> {payPO.vendorName}</p>
+                                    <p><strong>Total PO Amount:</strong> ${calculatePOTotal(payPO.items).toLocaleString()}</p>
+                                    <p><strong>Already Paid:</strong> <span className="text-emerald-600 font-bold">${(payPO.paidAmount || 0).toLocaleString()}</span></p>
+                                    <p><strong>Remaining Balance Due:</strong> <span className="text-rose-600 font-bold">${(calculatePOTotal(payPO.items) - (payPO.paidAmount || 0)).toLocaleString()}</span></p>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Quantity Receiving Now</label>
-                                    <input required type="number" name="amount" min="1" max={receivePO.qty - receivePO.receivedQty} defaultValue={receivePO.qty - receivePO.receivedQty} className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Amount ($)</label>
+                                    <input required type="number" step="0.01" max={calculatePOTotal(payPO.items) - (payPO.paidAmount || 0)} value={paymentAmountInput} onChange={(e)=>setPaymentAmountInput(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none font-bold" />
+                                    <p className="text-xs text-slate-400 mt-1">Enter partial amount or full remaining balance.</p>
                                 </div>
-                                <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-sm">Confirm & Update Inventory</button>
+                                <button type="submit" className="w-full bg-teal-600 text-white py-3 rounded-xl font-semibold hover:bg-teal-700 transition shadow-sm mt-2">Submit Payment Record</button>
                             </form>
                         )}
                     </Modal>
@@ -640,10 +849,10 @@
                     <Modal isOpen={!!ratePO} onClose={() => setRatePO(null)} title={`Vendor Scorecard - ${ratePO?.vendorName}`}>
                         {ratePO && (
                             <form onSubmit={submitVendorRating} className="space-y-4">
-                                <p className="text-sm text-slate-500">Rate vendor performance for completed order <strong>{ratePO.id}</strong> ({ratePO.itemName}).</p>
+                                <p className="text-sm text-slate-500">Rate vendor performance for completed order <strong>{ratePO.id}</strong>.</p>
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Product Quality (1-5)</label>
-                                    <select value={ratingData.quality} onChange={(e)=>setRatingData({...ratingData, quality: e.target.value})} className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
+                                    <select name="quality" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
                                         <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
                                         <option value="4">⭐⭐⭐⭐ Good</option>
                                         <option value="3">⭐⭐⭐ Average</option>
@@ -653,7 +862,7 @@
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Delivery Timeliness (1-5)</label>
-                                    <select value={ratingData.delivery} onChange={(e)=>setRatingData({...ratingData, delivery: e.target.value})} className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
+                                    <select name="delivery" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
                                         <option value="5">⭐⭐⭐⭐⭐ On Time / Early</option>
                                         <option value="4">⭐⭐⭐⭐ Minor Delay</option>
                                         <option value="3">⭐⭐⭐ Noticeable Delay</option>
@@ -663,7 +872,7 @@
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Pricing & Invoicing Accuracy (1-5)</label>
-                                    <select value={ratingData.cost} onChange={(e)=>setRatingData({...ratingData, cost: e.target.value})} className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
+                                    <select name="cost" className="w-full border border-slate-200 rounded-xl p-3 bg-white text-sm">
                                         <option value="5">⭐⭐⭐⭐⭐ Exact match / Great terms</option>
                                         <option value="4">⭐⭐⭐⭐ Minor discrepancy resolved</option>
                                         <option value="3">⭐⭐⭐ Average</option>
@@ -698,14 +907,13 @@
                     id: generateId('PO'),
                     vendorId: awardedBid.vendorId,
                     vendorName: awardedBid.vendorName,
-                    itemName: awardedBid.itemName,
-                    qty: 10,
-                    receivedQty: 0,
-                    price: awardedBid.amount,
-                    total: awardedBid.amount * 10,
+                    date: new Date().toISOString().split('T')[0],
                     status: 'ISSUED',
                     paymentStatus: 'UNPAID',
-                    date: new Date().toISOString().split('T')[0]
+                    paidAmount: 0,
+                    items: [
+                        { name: awardedBid.itemName, qty: 10, receivedQty: 0, price: awardedBid.amount }
+                    ]
                 };
                 setPOs([newPO, ...pos]);
                 addToast(`PO ${newPO.id} generated for winning bidder ${awardedBid.vendorName}!`, 'success');
@@ -1005,7 +1213,7 @@
                                     </div>
                                     <div className="hidden md:block text-left">
                                         <p className="text-sm font-bold text-slate-800 leading-tight">Jane Doe</p>
-                        <p className="text-xs text-slate-400 leading-tight mt-0.5">Supply Chain Lead</p>
+                                        <p className="text-xs text-slate-400 leading-tight mt-0.5">Supply Chain Lead</p>
                                     </div>
                                 </div>
                             </div>
